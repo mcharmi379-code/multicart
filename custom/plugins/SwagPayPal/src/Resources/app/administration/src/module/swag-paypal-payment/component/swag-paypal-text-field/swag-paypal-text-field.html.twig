@@ -1,0 +1,9 @@
+{% block sw_text_field %}
+<sw-text-field
+    ref="field"
+    v-bind="$attrs"
+    :value="value"
+    :hint="hintText"
+    @update:value="updateValue"
+/>
+{% endblock %}
