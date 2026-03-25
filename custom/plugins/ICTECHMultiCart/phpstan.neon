@@ -1,0 +1,7 @@
+parameters:
+    level: 9
+    treatPhpDocTypesAsCertain: false
+    paths:
+        - src
+    ignoreErrors:
+        - '#Property.*is never read, only written#'

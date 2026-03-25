@@ -1,0 +1,50 @@
+<?xml version="1.0" ?>
+
+<container xmlns="http://symfony.com/schema/dic/services"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
+
+    <services>
+        <!-- Entity Definitions -->
+        <service id="ICTECHMultiCart\Core\Content\MultiCart\MultiCartDefinition">
+            <tag name="shopware.entity.definition" />
+        </service>
+        <service id="ICTECHMultiCart\Core\Content\MultiCartItem\MultiCartItemDefinition">
+            <tag name="shopware.entity.definition" />
+        </service>
+        <service id="ICTECHMultiCart\Core\Content\MultiCartOrder\MultiCartOrderDefinition">
+            <tag name="shopware.entity.definition" />
+        </service>
+        <service id="ICTECHMultiCart\Core\Content\MultiCartConfig\MultiCartConfigDefinition">
+            <tag name="shopware.entity.definition" />
+        </service>
+        <service id="ICTECHMultiCart\Core\Content\MultiCartBlacklist\MultiCartBlacklistDefinition">
+            <tag name="shopware.entity.definition" />
+        </service>
+
+        <!-- Services -->
+        <service id="ICTECHMultiCart\Service\MultiCartService">
+            <argument type="service" id="ictech_multi_cart.repository" />
+            <argument type="service" id="ictech_multi_cart_order.repository" />
+        </service>
+
+        <service id="ICTECHMultiCart\Service\AnalyticsService">
+            <argument type="service" id="ictech_multi_cart.repository" />
+            <argument type="service" id="ictech_multi_cart_order.repository" />
+            <argument type="service" id="ictech_multi_cart_item.repository" />
+        </service>
+
+        <!-- Controllers -->
+        <service id="ICTECHMultiCart\Controller\Admin\MultiCartManagerController" public="true">
+            <argument type="service" id="ictech_multi_cart.repository" />
+            <argument type="service" id="ictech_multi_cart_config.repository" />
+            <argument type="service" id="ictech_multi_cart_blacklist.repository" />
+            <argument type="service" id="ictech_multi_cart_order.repository" />
+            <argument type="service" id="sales_channel.repository" />
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartService" />
+            <argument type="service" id="ICTECHMultiCart\Service\AnalyticsService" />
+            <argument type="service" id="Doctrine\DBAL\Connection" />
+            <tag name="controller.service_arguments" />
+        </service>
+    </services>
+</container>
