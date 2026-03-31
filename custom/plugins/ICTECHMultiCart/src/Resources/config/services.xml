@@ -33,7 +33,7 @@
             <argument type="service" id="Doctrine\DBAL\Connection" />
         </service>
 
-        <service id="ICTECHMultiCart\Service\MultiCartStorefrontConfigService">
+        <service id="ICTECHMultiCart\Service\MultiCartConfigService">
             <argument type="service" id="Doctrine\DBAL\Connection" />
         </service>
 
@@ -47,7 +47,7 @@
         <service id="ICTECHMultiCart\Service\MultiCartStorefrontContextService">
             <argument type="service" id="Doctrine\DBAL\Connection" />
             <argument type="service" id="request_stack" />
-            <argument type="service" id="ICTECHMultiCart\Service\MultiCartStorefrontConfigService" />
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartConfigService" />
             <argument type="service" id="ICTECHMultiCart\Service\MultiCartPriceCalculatorService" />
             <argument type="service" id="customer_address.repository" />
         </service>
@@ -106,6 +106,7 @@
             <argument type="service" id="sales_channel.repository" />
             <argument type="service" id="ICTECHMultiCart\Service\MultiCartService" />
             <argument type="service" id="ICTECHMultiCart\Service\AnalyticsService" />
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartConfigService" />
             <argument type="service" id="Doctrine\DBAL\Connection" />
             <tag name="controller.service_arguments" />
         </service>

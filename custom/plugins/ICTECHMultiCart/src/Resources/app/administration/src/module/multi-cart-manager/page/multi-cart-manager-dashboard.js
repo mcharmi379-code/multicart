@@ -80,8 +80,7 @@ Component.register('multi-cart-manager-dashboard', {
                     this.loadDashboard();
                 }
                 this.isLoading = false;
-            }).catch((error) => {
-                console.error('Failed to load sales channels:', error);
+            }).catch(() => {
                 this.createNotificationError({
                     title: this.$tc('multi-cart-manager.notification.error'),
                     message: this.$tc('multi-cart-manager.notification.loadSalesChannelsError'),

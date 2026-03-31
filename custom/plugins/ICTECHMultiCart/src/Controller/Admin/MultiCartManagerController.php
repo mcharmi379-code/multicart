@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use ICTECHMultiCart\Service\MultiCartService;
 use ICTECHMultiCart\Service\AnalyticsService;
+use ICTECHMultiCart\Service\MultiCartConfigService;
 use ICTECHMultiCart\Core\Content\MultiCart\MultiCartCollection;
 use Shopware\Core\System\SalesChannel\SalesChannelCollection;
 use Shopware\Core\System\SalesChannel\SalesChannelEntity;
@@ -35,6 +36,7 @@ final class MultiCartManagerController
         private EntityRepository $salesChannelRepository,
         private MultiCartService $multiCartService,
         private AnalyticsService $analyticsService,
+        private MultiCartConfigService $configService,
         private Connection $connection
     ) {
     }
@@ -83,12 +85,9 @@ final class MultiCartManagerController
             return new JsonResponse(['error' => 'Sales Channel ID is required'], 400);
         }
 
-        $config = $this->connection->fetchAssociative(
-            'SELECT HEX(id) AS id, HEX(sales_channel_id) AS salesChannelId, plugin_enabled AS pluginEnabled, max_carts_per_user AS maxCartsPerUser, checkout_prefs_enabled AS checkoutPrefsEnabled, promotions_enabled AS promotionsEnabled, multi_payment_enabled AS multiPaymentEnabled, conflict_resolution AS conflictResolution, ui_style AS uiStyle FROM ictech_multi_cart_config WHERE sales_channel_id = UNHEX(?) LIMIT 1',
-            [$salesChannelId]
-        );
+        $config = $this->configService->getStoredConfig($salesChannelId);
 
-        if (!$config) {
+        if ($config === null) {
             return new JsonResponse([]);
         }
 
@@ -119,118 +118,9 @@ final class MultiCartManagerController
             return new JsonResponse(['error' => 'Sales Channel ID is required'], 400);
         }
 
-        $configData = $this->buildConfigData($data);
-
-        $id = Uuid::uuid4()->getHex();
-        $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s.u');
-
-        $this->connection->executeStatement(
-            'INSERT INTO ictech_multi_cart_config (id, sales_channel_id, plugin_enabled, max_carts_per_user, checkout_prefs_enabled, promotions_enabled, multi_payment_enabled, conflict_resolution, ui_style, created_at, updated_at) VALUES (UNHEX(?), UNHEX(?), ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE plugin_enabled = VALUES(plugin_enabled), max_carts_per_user = VALUES(max_carts_per_user), checkout_prefs_enabled = VALUES(checkout_prefs_enabled), promotions_enabled = VALUES(promotions_enabled), multi_payment_enabled = VALUES(multi_payment_enabled), conflict_resolution = VALUES(conflict_resolution), ui_style = VALUES(ui_style), updated_at = VALUES(updated_at)',
-            [
-                $id,
-                $salesChannelId,
-                (int) $configData['pluginEnabled'],
-                $configData['maxCartsPerUser'],
-                (int) $configData['checkoutPrefsEnabled'],
-                (int) $configData['promotionsEnabled'],
-                (int) $configData['multiPaymentEnabled'],
-                $configData['conflictResolution'],
-                $configData['uiStyle'],
-                $now,
-                $now,
-            ]
-        );
+        $this->configService->saveConfig($salesChannelId, $data);
 
         return new JsonResponse(['success' => true]);
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     * @return array{
-     *     pluginEnabled: bool,
-     *     maxCartsPerUser: int,
-     *     checkoutPrefsEnabled: bool,
-     *     promotionsEnabled: bool,
-     *     multiPaymentEnabled: bool,
-     *     conflictResolution: string,
-     *     uiStyle: string
-     * }
-     */
-    private function buildConfigData(array $data): array
-    {
-        return [
-            'pluginEnabled' => $this->getBoolValue($data, 'pluginEnabled', true),
-            'maxCartsPerUser' => $this->getIntValue($data, 'maxCartsPerUser', 10),
-            'checkoutPrefsEnabled' => $this->getBoolValue($data, 'checkoutPrefsEnabled', true),
-            'promotionsEnabled' => $this->getBoolValue($data, 'promotionsEnabled', true),
-            'multiPaymentEnabled' => $this->getBoolValue($data, 'multiPaymentEnabled', true),
-            'conflictResolution' => $this->getStringValue($data, 'conflictResolution', 'allow_override'),
-            'uiStyle' => $this->getStringValue($data, 'uiStyle', 'popup'),
-        ];
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    private function getBoolValue(array $data, string $key, bool $default): bool
-    {
-        if (!array_key_exists($key, $data)) {
-            return $default;
-        }
-
-        $value = $data[$key];
-
-        if (is_bool($value)) {
-            return $value;
-        }
-
-        if (is_int($value) || is_float($value)) {
-            return (bool) $value;
-        }
-
-        if (is_string($value)) {
-            $normalized = strtolower(trim($value));
-
-            if (in_array($normalized, ['1', 'true', 'yes', 'on'], true)) {
-                return true;
-            }
-
-            if (in_array($normalized, ['0', 'false', 'no', 'off'], true)) {
-                return false;
-            }
-        }
-
-        return $default;
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    private function getIntValue(array $data, string $key, int $default): int
-    {
-        if (!array_key_exists($key, $data)) {
-            return $default;
-        }
-
-        $value = $data[$key];
-
-        if (is_int($value)) {
-            return $value;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            return (int) $value;
-        }
-
-        return $default;
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    private function getStringValue(array $data, string $key, string $default): string
-    {
-        return isset($data[$key]) && is_string($data[$key]) ? $data[$key] : $default;
     }
 
     /**

@@ -93,15 +93,11 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
             });
 
             if (!response.ok) {
-                console.error('Failed to load multi-cart state:', response.status);
                 return null;
             }
 
-            const state = await response.json();
-            console.log('Multi-cart state loaded:', state);
-            return state;
-        } catch (error) {
-            console.error('Error loading multi-cart state:', error);
+            return await response.json();
+        } catch {
             return null;
         }
     }
@@ -115,7 +111,10 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
         }
 
         this._pseudoModal = new PseudoModalUtil(markup, true);
-        this._pseudoModal.open(() => this._bindSelectorEvents());
+        this._pseudoModal.open(() => {
+            this._applyPopupModalShell();
+            this._bindSelectorEvents();
+        });
     }
 
     _renderSelectorMarkup() {
@@ -595,7 +594,35 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
         }
 
         if (this._pseudoModal) {
-            this._pseudoModal.updateContent(markup, () => this._bindSelectorEvents());
+            this._pseudoModal.updateContent(markup, () => {
+                this._applyPopupModalShell();
+                this._bindSelectorEvents();
+            });
+        }
+    }
+
+    _applyPopupModalShell() {
+        const modal = document.querySelector('.js-pseudo-modal .modal');
+
+        if (!modal) {
+            return;
+        }
+
+        modal.classList.add('ictech-multi-cart-modal');
+
+        const modalDialog = modal.querySelector('.modal-dialog');
+        if (modalDialog) {
+            modalDialog.classList.add('ictech-multi-cart-modal__dialog');
+        }
+
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.classList.add('ictech-multi-cart-modal__content');
+        }
+
+        const modalBody = modal.querySelector('.modal-body');
+        if (modalBody) {
+            modalBody.classList.add('ictech-multi-cart-modal__body');
         }
     }
 
@@ -761,6 +788,10 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
     _getInlineStyles() {
         return `
             .ictech-multi-cart-selector{--ictech-surface:#fff;--ictech-surface-soft:#f8fbff;--ictech-surface-highlight:#eef5ff;--ictech-border:#d8e1ec;--ictech-border-strong:#0a56c6;--ictech-ink:#15253a;--ictech-muted:#5e6c80;--ictech-brand:#0a56c6;--ictech-brand-dark:#083c8d;--ictech-shadow:0 24px 60px rgba(14,33,68,.12);color:var(--ictech-ink)}
+            .ictech-multi-cart-modal .modal-dialog.ictech-multi-cart-modal__dialog{max-width:min(1080px,calc(100vw - 1.5rem));margin:1rem auto}
+            .ictech-multi-cart-modal .modal-content.ictech-multi-cart-modal__content{border:0;border-radius:1.5rem;overflow:hidden;background:#fff;box-shadow:0 28px 70px rgba(14,33,68,.18)}
+            .ictech-multi-cart-modal .modal-header{padding:1rem 1rem 0;border-bottom:0}
+            .ictech-multi-cart-modal .modal-body.ictech-multi-cart-modal__body{padding:0 1rem 1rem}
             .ictech-multi-cart-selector--popup{min-width:min(940px,calc(100vw - 3rem))}
             .ictech-multi-cart-selector__hero{margin-bottom:1.25rem;padding:1.5rem;border-radius:1.5rem;background:radial-gradient(circle at top right,rgba(10,86,198,.16),transparent 34%),linear-gradient(135deg,#f6f9ff 0,#fff 52%,#eef4ff 100%)}
             .ictech-multi-cart-selector__eyebrow{margin:0 0 .45rem;font-size:.76rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ictech-brand)}
@@ -817,8 +848,8 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
             .ictech-multi-cart-drawer{width:min(100vw,420px);max-width:420px;padding:1rem;background:radial-gradient(circle at top left,rgba(10,86,198,.12),transparent 26%),linear-gradient(180deg,#f6f9ff 0,#fff 100%)}
             .ictech-multi-cart-selector--drawer .ictech-multi-cart-selector__panel{padding:1rem;box-shadow:0 14px 34px rgba(14,33,68,.08)}
             .ictech-multi-cart-selector--drawer .ictech-multi-cart-selector__ghost{padding-inline:.5rem;font-size:.82rem}
-            @media (max-width:991.98px){.ictech-multi-cart-selector--popup{min-width:min(100vw - 2rem,760px)}.ictech-multi-cart-selector__grid{grid-template-columns:1fr}}
-            @media (max-width:767.98px){.ictech-multi-cart-selector--popup{min-width:calc(100vw - 1rem)}.ictech-multi-cart-selector__hero,.ictech-multi-cart-selector__panel{padding:1rem}.ictech-multi-cart-selector__promo,.ictech-multi-cart-selector__create-row,.ictech-multi-cart-selector__footer-actions,.ictech-multi-cart-selector__promo-actions{grid-template-columns:1fr}.ictech-multi-cart-card{grid-template-columns:1fr}.ictech-multi-cart-card__price{grid-row:auto;grid-column:auto}.ictech-multi-cart-drawer{width:100vw;max-width:100vw;padding:.75rem}}
+            @media (max-width:991.98px){.ictech-multi-cart-modal .modal-dialog.ictech-multi-cart-modal__dialog{max-width:calc(100vw - 1rem);margin:.5rem auto}.ictech-multi-cart-selector--popup{min-width:min(100vw - 2rem,760px)}.ictech-multi-cart-selector__grid{grid-template-columns:1fr}}
+            @media (max-width:767.98px){.ictech-multi-cart-modal .modal-header{padding:.75rem .75rem 0}.ictech-multi-cart-modal .modal-body.ictech-multi-cart-modal__body{padding:0 .75rem .75rem}.ictech-multi-cart-selector--popup{min-width:100%}.ictech-multi-cart-selector__hero,.ictech-multi-cart-selector__panel{padding:1rem}.ictech-multi-cart-selector__promo,.ictech-multi-cart-selector__create-row,.ictech-multi-cart-selector__footer-actions,.ictech-multi-cart-selector__promo-actions{grid-template-columns:1fr}.ictech-multi-cart-card{grid-template-columns:1fr}.ictech-multi-cart-card__price{grid-row:auto;grid-column:auto}.ictech-multi-cart-drawer{width:100vw;max-width:100vw;padding:.75rem}}
         `;
     }
 

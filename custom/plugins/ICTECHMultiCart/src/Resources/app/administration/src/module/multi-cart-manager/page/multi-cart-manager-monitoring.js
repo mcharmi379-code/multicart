@@ -71,8 +71,7 @@ Component.register('multi-cart-manager-monitoring', {
                     this.selectedSalesChannel = this.salesChannels[0].id;
                 }
                 this.isLoading = false;
-            }).catch((error) => {
-                console.error('Failed to load sales channels:', error);
+            }).catch(() => {
                 this.createNotificationError({
                     title: this.$tc('multi-cart-manager.notification.error'),
                     message: this.$tc('multi-cart-manager.notification.loadSalesChannelsError'),
@@ -95,8 +94,7 @@ Component.register('multi-cart-manager-monitoring', {
             }).then((response) => {
                 this.monitoredCarts = Array.isArray(response.data?.data) ? response.data.data : [];
                 this.isLoading = false;
-            }).catch((error) => {
-                console.error('Failed to load monitored carts:', error);
+            }).catch(() => {
                 this.createNotificationError({
                     title: this.$tc('multi-cart-manager.notification.error'),
                     message: this.$tc('multi-cart-manager.notification.loadMonitoringError'),

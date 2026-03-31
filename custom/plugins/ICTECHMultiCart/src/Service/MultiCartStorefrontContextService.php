@@ -26,7 +26,7 @@ final class MultiCartStorefrontContextService
     public function __construct(
         private readonly Connection $connection,
         private readonly RequestStack $requestStack,
-        private readonly MultiCartStorefrontConfigService $configService,
+        private readonly MultiCartConfigService $configService,
         private readonly MultiCartPriceCalculatorService $priceCalculator,
         /** @var EntityRepository<CustomerAddressCollection> */
         private readonly EntityRepository $customerAddressRepository
@@ -126,7 +126,7 @@ final class MultiCartStorefrontContextService
 
         $trimmedName = trim($name);
 
-        if ($trimmedName == '') {
+        if ($trimmedName === '') {
             return null;
         }
 

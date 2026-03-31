@@ -41,7 +41,7 @@
 
     {% if not multiCartState.canCreateCart %}
         <div class="alert alert-info mt-3 mb-0" role="status">
-            {% if multiCartState.createCartReason == 'limit_reached' %}
+            {% if multiCartState.createCartReason is same as('limit_reached') %}
                 {{ 'ictech-multi-cart.account.createLimitReached'|trans({'%limit%': multiCartState.maxCartsPerUser}) }}
             {% else %}
                 {{ 'ictech-multi-cart.account.createUnavailable'|trans }}

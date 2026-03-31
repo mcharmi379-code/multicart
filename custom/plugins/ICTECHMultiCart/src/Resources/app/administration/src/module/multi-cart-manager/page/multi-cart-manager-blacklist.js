@@ -91,8 +91,7 @@ Component.register('multi-cart-manager-blacklist', {
                         this.selectedSalesChannel = this.salesChannels[0].id;
                     }
                     this.isLoading = false;
-                }).catch((error) => {
-                    console.error('Failed to load sales channels:', error);
+                }).catch(() => {
                     this.createNotificationError({
                         title: this.$tc('multi-cart-manager.notification.error'),
                         message: this.$tc('multi-cart-manager.notification.loadSalesChannelsError'),
@@ -127,8 +126,7 @@ Component.register('multi-cart-manager-blacklist', {
                 }));
                 this.total = Number.isInteger(response.data?.total) ? response.data.total : 0;
                 this.isLoading = false;
-            }).catch((error) => {
-                console.error('Load blacklist error:', error);
+            }).catch(() => {
                 this.createNotificationError({
                     title: this.$tc('multi-cart-manager.notification.error'),
                     message: this.$tc('multi-cart-manager.notification.loadBlacklistError'),
@@ -200,8 +198,7 @@ Component.register('multi-cart-manager-blacklist', {
                 this.showAddForm = false;
                 this.page = 1;
                 this.loadBlacklist();
-            }).catch((error) => {
-                console.error('Add to blacklist error:', error);
+            }).catch(() => {
                 this.createNotificationError({
                     title: this.$tc('multi-cart-manager.notification.error'),
                     message: this.$tc('multi-cart-manager.notification.addBlacklistError'),

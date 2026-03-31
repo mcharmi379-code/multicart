@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "4e123372c0ccf5b613ab932c7559b26e",
+    "content-hash": "4f23e29b516b22d509bc5b5e2ffbad39",
     "packages": [
         {
             "name": "brick/math",
@@ -3464,6 +3464,60 @@
             "time": "2025-07-25T09:04:22+00:00"
         },
         {
+            "name": "meyfa/php-svg",
+            "version": "v0.16.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/meyfa/php-svg.git",
+                "reference": "a62c2b9842826e83ea51f9b9e6ed28d2bdb1033c"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/meyfa/php-svg/zipball/a62c2b9842826e83ea51f9b9e6ed28d2bdb1033c",
+                "reference": "a62c2b9842826e83ea51f9b9e6ed28d2bdb1033c",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=7.4.0"
+            },
+            "require-dev": {
+                "meyfa/phpunit-assert-gd": "^v3.0.0",
+                "phpmd/phpmd": "^2.15.0",
+                "phpunit/phpunit": "^9.6.16",
+                "rector/rector": "^1.0"
+            },
+            "suggest": {
+                "ext-gd": "Needed to rasterize images",
+                "ext-simplexml": "Needed to read SVG strings and files"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "SVG\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Fabian Meyer",
+                    "homepage": "https://meyfa.net"
+                }
+            ],
+            "description": "Read, edit, write, and render SVG files with PHP",
+            "homepage": "https://github.com/meyfa/php-svg",
+            "keywords": [
+                "svg"
+            ],
+            "support": {
+                "issues": "https://github.com/meyfa/php-svg/issues",
+                "source": "https://github.com/meyfa/php-svg/tree/v0.16.1"
+            },
+            "time": "2025-03-10T22:28:37+00:00"
+        },
+        {
             "name": "monolog/monolog",
             "version": "3.10.0",
             "source": {
@@ -3643,6 +3697,45 @@
                 }
             ],
             "time": "2024-09-09T07:06:30+00:00"
+        },
+        {
+            "name": "padaliyajay/php-autoprefixer",
+            "version": "1.5",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/padaliyajay/php-autoprefixer.git",
+                "reference": "0fe905f63ba87c130eb712b69eb81a660c8127c6"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/padaliyajay/php-autoprefixer/zipball/0fe905f63ba87c130eb712b69eb81a660c8127c6",
+                "reference": "0fe905f63ba87c130eb712b69eb81a660c8127c6",
+                "shasum": ""
+            },
+            "require": {
+                "sabberworm/php-css-parser": "*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Padaliyajay\\PHPAutoprefixer\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Jay padaliya"
+                }
+            ],
+            "description": "CSS Autoprefixer written in pure PHP.",
+            "support": {
+                "issues": "https://github.com/padaliyajay/php-autoprefixer/issues",
+                "source": "https://github.com/padaliyajay/php-autoprefixer/tree/1.5"
+            },
+            "time": "2025-12-01T07:31:35+00:00"
         },
         {
             "name": "paragonie/constant_time_encoding",
@@ -4632,6 +4725,86 @@
             "time": "2026-03-03T17:31:43+00:00"
         },
         {
+            "name": "scssphp/scssphp",
+            "version": "v1.12.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/scssphp/scssphp.git",
+                "reference": "a6b20c170ddb95f116b3d148a466a7bed1e85c35"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/scssphp/scssphp/zipball/a6b20c170ddb95f116b3d148a466a7bed1e85c35",
+                "reference": "a6b20c170ddb95f116b3d148a466a7bed1e85c35",
+                "shasum": ""
+            },
+            "require": {
+                "ext-ctype": "*",
+                "ext-json": "*",
+                "php": ">=5.6.0"
+            },
+            "require-dev": {
+                "bamarni/composer-bin-plugin": "^1.4",
+                "phpunit/phpunit": "^5.7 || ^6.5 || ^7.5 || ^8.3 || ^9.4",
+                "sass/sass-spec": "*",
+                "squizlabs/php_codesniffer": "~3.5",
+                "symfony/phpunit-bridge": "^5.1",
+                "thoughtbot/bourbon": "^7.0",
+                "twbs/bootstrap": "~5.0",
+                "twbs/bootstrap4": "4.6.1",
+                "zurb/foundation": "~6.7.0"
+            },
+            "suggest": {
+                "ext-iconv": "Can be used as fallback when ext-mbstring is not available",
+                "ext-mbstring": "For best performance, mbstring should be installed as it is faster than ext-iconv"
+            },
+            "bin": [
+                "bin/pscss"
+            ],
+            "type": "library",
+            "extra": {
+                "bamarni-bin": {
+                    "bin-links": false,
+                    "forward-command": false
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "ScssPhp\\ScssPhp\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Anthon Pang",
+                    "email": "apang@softwaredevelopment.ca",
+                    "homepage": "https://github.com/robocoder"
+                },
+                {
+                    "name": "Cédric Morin",
+                    "email": "cedric@yterium.com",
+                    "homepage": "https://github.com/Cerdic"
+                }
+            ],
+            "description": "scssphp is a compiler for SCSS written in PHP.",
+            "homepage": "http://scssphp.github.io/scssphp/",
+            "keywords": [
+                "css",
+                "less",
+                "sass",
+                "scss",
+                "stylesheet"
+            ],
+            "support": {
+                "issues": "https://github.com/scssphp/scssphp/issues",
+                "source": "https://github.com/scssphp/scssphp/tree/v1.12.0"
+            },
+            "time": "2023-11-14T14:56:09+00:00"
+        },
+        {
             "name": "seld/jsonlint",
             "version": "1.11.0",
             "source": {
@@ -5211,6 +5384,82 @@
                 "wiki": "https://developer.shopware.com"
             },
             "time": "2026-03-09T12:47:56+00:00"
+        },
+        {
+            "name": "shopware/storefront",
+            "version": "v6.6.10.15",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/shopware/storefront.git",
+                "reference": "d6fdf7a779d81cc27b23a89c4fcb6e850cf7e185"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/shopware/storefront/zipball/d6fdf7a779d81cc27b23a89c4fcb6e850cf7e185",
+                "reference": "d6fdf7a779d81cc27b23a89c4fcb6e850cf7e185",
+                "shasum": ""
+            },
+            "require": {
+                "cocur/slugify": "^4.7.0",
+                "doctrine/dbal": "~3.10.0",
+                "meyfa/php-svg": "^0.16.1",
+                "padaliyajay/php-autoprefixer": "^1.4",
+                "php": "~8.2.0 || ~8.3.0 || ~8.4.0 || ~8.5.0",
+                "scssphp/scssphp": "v1.12.0",
+                "shopware/core": "v6.6.10.15",
+                "symfony/cache": "~7.4.0",
+                "symfony/cache-contracts": "~3.6.0",
+                "symfony/config": "~7.4.0",
+                "symfony/console": "~7.4.0",
+                "symfony/dependency-injection": "~7.4.0",
+                "symfony/event-dispatcher": "~7.4.0",
+                "symfony/event-dispatcher-contracts": "~3.6.0",
+                "symfony/framework-bundle": "~7.4.0",
+                "symfony/http-foundation": "~7.4.0",
+                "symfony/http-kernel": "~7.4.0",
+                "symfony/messenger": "~7.4.0",
+                "symfony/mime": "~7.4.0",
+                "symfony/routing": "~7.4.0",
+                "symfony/security-core": "~7.4.0",
+                "symfony/service-contracts": "~3.6.0",
+                "symfony/validator": "~7.4.0",
+                "twig/intl-extra": "^3.10.0",
+                "twig/string-extra": "^3.10.0",
+                "twig/twig": "^3.21.1"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^10.5.38",
+                "symfony/css-selector": "~7.4.0"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-trunk": "6.6.x-dev",
+                    "dev-master": "6.6.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Shopware\\Storefront\\": ""
+                },
+                "exclude-from-classmap": [
+                    "*/Test/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Storefront for Shopware",
+            "support": {
+                "chat": "https://slack.shopware.com",
+                "docs": "https://developer.shopware.com",
+                "forum": "https://forum.shopware.com",
+                "issues": "https://github.com/shopware/shopware/issues",
+                "source": "https://github.com/shopware/storefront/tree/v6.6.10.15",
+                "wiki": "https://developer.shopware.com"
+            },
+            "time": "2026-03-11T10:35:34+00:00"
         },
         {
             "name": "smalot/pdfparser",
