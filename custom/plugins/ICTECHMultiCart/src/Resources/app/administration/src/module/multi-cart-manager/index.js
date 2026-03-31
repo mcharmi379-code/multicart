@@ -1,6 +1,7 @@
 import './page/multi-cart-manager-dashboard';
 import './page/multi-cart-manager-settings';
 import './page/multi-cart-manager-blacklist';
+import './page/multi-cart-manager-monitoring';
 import enGB from './snippet/en-GB.json';
 import deDE from './snippet/de-DE.json';
 
@@ -35,6 +36,10 @@ Module.register('multi-cart-manager', {
             component: 'multi-cart-manager-blacklist',
             path: 'blacklist',
         },
+        monitoring: {
+            component: 'multi-cart-manager-monitoring',
+            path: 'monitoring',
+        },
     },
 
     navigation: [
@@ -67,6 +72,13 @@ Module.register('multi-cart-manager', {
             path: 'multi.cart.manager.blacklist',
             parent: 'multi-cart-manager',
             position: 30,
+        },
+        {
+            id: 'multi-cart-manager-monitoring',
+            label: 'multi-cart-manager.monitoring.title',
+            path: 'multi.cart.manager.monitoring',
+            parent: 'multi-cart-manager',
+            position: 40,
         },
     ],
 });

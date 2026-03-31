@@ -42,9 +42,26 @@ final class MultiCartManagerController
     #[Route(path: '/api/_action/multi-cart/dashboard', name: 'api.multi_cart.dashboard', methods: ['GET'], defaults: ['_routeScope' => ['api']])]
     public function getDashboard(Request $request, Context $context): JsonResponse
     {
-        $salesChannelId = $request->query->get('salesChannelId');
-        if ($salesChannelId !== null && !is_string($salesChannelId)) {
+        $salesChannelId = $this->normalizeSalesChannelId($request->query->get('salesChannelId'));
+
+        if ($salesChannelId === false) {
             return new JsonResponse(['error' => 'Invalid sales channel ID'], 400);
+        }
+
+        if ($salesChannelId === null) {
+            return new JsonResponse([
+                'activeCarts' => [],
+                'analytics' => [
+                    'totalCartsCreated' => 0,
+                    'cartsConvertedToOrders' => 0,
+                    'conversionRate' => 0.0,
+                    'averageItemsPerCart' => 0.0,
+                    'averageCartValue' => 0.0,
+                    'totalCartValue' => 0.0,
+                    'usageDistribution' => [],
+                ],
+                'completedOrders' => [],
+            ]);
         }
 
         $activeCarts = $this->multiCartService->getActiveCarts($salesChannelId, $context);
@@ -67,7 +84,7 @@ final class MultiCartManagerController
         }
 
         $config = $this->connection->fetchAssociative(
-            'SELECT HEX(id) AS id, HEX(sales_channel_id) AS salesChannelId, plugin_enabled AS pluginEnabled, max_carts_per_user AS maxCartsPerUser, checkout_prefs_enabled AS checkoutPrefsEnabled, promotions_enabled AS promotionsEnabled, multi_payment_enabled AS multiPaymentEnabled, conflict_resolution AS conflictResolution, ui_style AS uiStyle FROM ictech_multi_cart_config WHERE blacklist.sales_channel_id = UNHEX(?) LIMIT 1',
+            'SELECT HEX(id) AS id, HEX(sales_channel_id) AS salesChannelId, plugin_enabled AS pluginEnabled, max_carts_per_user AS maxCartsPerUser, checkout_prefs_enabled AS checkoutPrefsEnabled, promotions_enabled AS promotionsEnabled, multi_payment_enabled AS multiPaymentEnabled, conflict_resolution AS conflictResolution, ui_style AS uiStyle FROM ictech_multi_cart_config WHERE sales_channel_id = UNHEX(?) LIMIT 1',
             [$salesChannelId]
         );
 
@@ -295,6 +312,29 @@ final class MultiCartManagerController
         throw new \UnexpectedValueException('Expected numeric scalar value.');
     }
 
+    private function normalizeSalesChannelId(mixed $value): string|false|null
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_string($value)) {
+            return false;
+        }
+
+        $normalized = strtolower(trim($value));
+
+        if ($normalized === '') {
+            return null;
+        }
+
+        if (!preg_match('/^[0-9a-f]{32}$/', $normalized)) {
+            return false;
+        }
+
+        return $normalized;
+    }
+
 
     #[Route(path: '/api/_action/multi-cart/blacklist', name: 'api.multi_cart.blacklist.list', methods: ['GET'], defaults: ['_routeScope' => ['api']])]
     public function getBlacklist(Request $request, Context $context): JsonResponse
@@ -392,6 +432,92 @@ SQL;
         );
 
         return new JsonResponse(['success' => true]);
+    }
+
+    #[Route(path: '/api/_action/multi-cart/monitoring/carts', name: 'api.multi_cart.monitoring.carts', methods: ['GET'], defaults: ['_routeScope' => ['api']])]
+    public function getMonitoringCarts(Request $request, Context $context): JsonResponse
+    {
+        $salesChannelId = $request->query->get('salesChannelId');
+        $customerId = $request->query->get('customerId');
+
+        if (!is_string($salesChannelId) || !is_string($customerId) || $salesChannelId === '' || $customerId === '') {
+            return new JsonResponse([
+                'data' => [],
+                'total' => 0,
+            ]);
+        }
+
+        /** @var list<array<string, mixed>> $rows */
+        $rows = $this->connection->fetchAllAssociative(
+            <<<'SQL'
+SELECT
+    LOWER(HEX(cart.id)) AS id,
+    cart.name AS name,
+    cart.status AS status,
+    cart.promotion_code AS promotionCode,
+    cart.promotion_discount AS promotionDiscount,
+    cart.subtotal AS subtotal,
+    cart.total AS total,
+    cart.created_at AS createdAt,
+    COALESCE(cart.updated_at, cart.created_at) AS updatedAt,
+    COUNT(item.id) AS itemCount
+FROM ictech_multi_cart cart
+LEFT JOIN ictech_multi_cart_item item ON item.multi_cart_id = cart.id
+WHERE cart.sales_channel_id = UNHEX(:salesChannelId)
+  AND cart.customer_id = UNHEX(:customerId)
+GROUP BY cart.id, cart.name, cart.status, cart.promotion_code, cart.promotion_discount, cart.subtotal, cart.total, cart.created_at, updatedAt
+ORDER BY updatedAt DESC
+SQL,
+            [
+                'salesChannelId' => $salesChannelId,
+                'customerId' => $customerId,
+            ]
+        );
+
+        $carts = array_map(function (array $row): array {
+            $cartId = $this->getRequiredStringFromRow($row, 'id');
+
+            /** @var list<array<string, mixed>> $items */
+            $items = $this->connection->fetchAllAssociative(
+                <<<'SQL'
+SELECT
+    item.product_name AS productName,
+    item.product_number AS productNumber,
+    item.quantity AS quantity,
+    item.unit_price AS unitPrice,
+    item.total_price AS totalPrice
+FROM ictech_multi_cart_item item
+WHERE item.multi_cart_id = UNHEX(:cartId)
+ORDER BY item.created_at ASC
+SQL,
+                ['cartId' => $cartId]
+            );
+
+            return [
+                'id' => $cartId,
+                'name' => $this->getRequiredStringFromRow($row, 'name'),
+                'status' => $this->getRequiredStringFromRow($row, 'status'),
+                'promotionCode' => $row['promotionCode'],
+                'promotionDiscount' => (float) ($row['promotionDiscount'] ?? 0),
+                'subtotal' => (float) ($row['subtotal'] ?? 0),
+                'total' => (float) ($row['total'] ?? 0),
+                'createdAt' => $row['createdAt'],
+                'updatedAt' => $row['updatedAt'],
+                'itemCount' => (int) ($row['itemCount'] ?? 0),
+                'items' => array_map(static fn (array $item): array => [
+                    'productName' => (string) ($item['productName'] ?? ''),
+                    'productNumber' => (string) ($item['productNumber'] ?? ''),
+                    'quantity' => (int) ($item['quantity'] ?? 0),
+                    'unitPrice' => (float) ($item['unitPrice'] ?? 0),
+                    'totalPrice' => (float) ($item['totalPrice'] ?? 0),
+                ], $items),
+            ];
+        }, $rows);
+
+        return new JsonResponse([
+            'data' => $carts,
+            'total' => count($carts),
+        ]);
     }
 
     #[Route(path: '/api/_action/multi-cart/sales-channels', name: 'api.multi_cart.sales_channels', methods: ['GET'], defaults: ['_routeScope' => ['api']])]

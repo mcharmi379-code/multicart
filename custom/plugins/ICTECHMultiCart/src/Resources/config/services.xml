@@ -26,12 +26,73 @@
         <service id="ICTECHMultiCart\Service\MultiCartService">
             <argument type="service" id="ictech_multi_cart.repository" />
             <argument type="service" id="ictech_multi_cart_order.repository" />
+            <argument type="service" id="Doctrine\DBAL\Connection" />
         </service>
 
         <service id="ICTECHMultiCart\Service\AnalyticsService">
-            <argument type="service" id="ictech_multi_cart.repository" />
-            <argument type="service" id="ictech_multi_cart_order.repository" />
-            <argument type="service" id="ictech_multi_cart_item.repository" />
+            <argument type="service" id="Doctrine\DBAL\Connection" />
+        </service>
+
+        <service id="ICTECHMultiCart\Service\MultiCartStorefrontConfigService">
+            <argument type="service" id="Doctrine\DBAL\Connection" />
+        </service>
+
+        <service id="ICTECHMultiCart\Service\MultiCartPriceCalculatorService">
+            <argument type="service" id="Doctrine\DBAL\Connection" />
+            <argument type="service" id="Shopware\Core\Checkout\Cart\SalesChannel\CartService" />
+            <argument type="service" id="Shopware\Core\Checkout\Cart\LineItemFactoryRegistry" />
+            <argument type="service" id="Shopware\Core\Checkout\Promotion\Cart\PromotionItemBuilder" />
+        </service>
+
+        <service id="ICTECHMultiCart\Service\MultiCartStorefrontContextService">
+            <argument type="service" id="Doctrine\DBAL\Connection" />
+            <argument type="service" id="request_stack" />
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartStorefrontConfigService" />
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartPriceCalculatorService" />
+        </service>
+
+        <service id="ICTECHMultiCart\Subscriber\Storefront\MultiCartStorefrontSubscriber">
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartStorefrontContextService" />
+            <tag name="kernel.event_subscriber" />
+        </service>
+
+        <service id="ICTECHMultiCart\Service\MultiCartStorefrontItemService">
+            <argument type="service" id="Doctrine\DBAL\Connection" />
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartPriceCalculatorService" />
+        </service>
+
+        <service id="ICTECHMultiCart\Service\MultiCartCheckoutService">
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartStorefrontContextService" />
+            <argument type="service" id="Shopware\Core\Checkout\Cart\SalesChannel\CartService" />
+            <argument type="service" id="Shopware\Core\Checkout\Cart\LineItemFactoryRegistry" />
+            <argument type="service" id="Shopware\Core\System\SalesChannel\SalesChannel\ContextSwitchRoute" />
+            <argument type="service" id="Shopware\Core\Checkout\Promotion\Cart\PromotionItemBuilder" />
+            <argument type="service" id="request_stack" />
+        </service>
+
+        <service id="ICTECHMultiCart\Subscriber\Storefront\MultiCartOrderSubscriber">
+            <argument type="service" id="Doctrine\DBAL\Connection" />
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartCheckoutService" />
+            <tag name="kernel.event_subscriber" />
+        </service>
+
+        <service id="ICTECHMultiCart\Controller\Storefront\MultiCartController" public="true" autoconfigure="true">
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartStorefrontContextService" />
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartStorefrontItemService" />
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartCheckoutService" />
+            <call method="setContainer">
+                <argument type="service" id="service_container" />
+            </call>
+            <tag name="controller.service_arguments" />
+        </service>
+
+        <service id="ICTECHMultiCart\Controller\Storefront\MultiCartAccountController" public="true" autowire="true" autoconfigure="true">
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartStorefrontContextService" />
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartCheckoutService" />
+            <call method="setContainer">
+                <argument type="service" id="service_container" />
+            </call>
+            <tag name="controller.service_arguments" />
         </service>
 
         <!-- Controllers -->

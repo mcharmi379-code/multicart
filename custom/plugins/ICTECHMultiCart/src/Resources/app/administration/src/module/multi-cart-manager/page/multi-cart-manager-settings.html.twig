@@ -62,15 +62,6 @@
                 v-model:value="config.multiPaymentEnabled"
                 :label="$tc('multi-cart-manager.settings.multiPaymentEnabled')"
             />
-            <sw-select-field
-                v-if="config.multiPaymentEnabled"
-                v-model:value="config.conflictResolution"
-                :label="$tc('multi-cart-manager.settings.conflictResolutionLabel')"
-            >
-                <option value="allow_override">{{ $tc('multi-cart-manager.settings.conflictResolution.allowOverride') }}</option>
-                <option value="require_same">{{ $tc('multi-cart-manager.settings.conflictResolution.requireSame') }}</option>
-                <option value="show_warning">{{ $tc('multi-cart-manager.settings.conflictResolution.showWarning') }}</option>
-            </sw-select-field>
         </sw-card>
 
         <!-- UI Settings -->

@@ -1,0 +1,167 @@
+{% sw_extends '@Storefront/storefront/component/product/card/action.html.twig' %}
+
+{% set ictechMultiCartEnabled = ictechMultiCart is defined and ictechMultiCart.get('enabled') %}
+{% set ictechMultiCartActive = ictechMultiCartEnabled
+    and ictechMultiCart.get('customerLoggedIn')
+    and ictechMultiCart.get('customerAllowed')
+    and not ictechMultiCart.get('blacklisted') %}
+{% set ictechMultiCartLabels = {
+    selectorEyebrow: 'ictech-multi-cart.selector.eyebrow'|trans,
+    selectorTitle: 'ictech-multi-cart.selector.title'|trans,
+    selectorSubtitle: 'ictech-multi-cart.selector.subtitle'|trans,
+    selectorDrawerTitle: 'ictech-multi-cart.selector.drawerTitle'|trans,
+    existingCartsLabel: 'ictech-multi-cart.selector.existingCarts'|trans,
+    createCartLabel: 'ictech-multi-cart.selector.createCart'|trans,
+    cartNameLabel: 'ictech-multi-cart.selector.cartNameLabel'|trans,
+    cartNamePlaceholder: 'ictech-multi-cart.selector.cartNamePlaceholder'|trans,
+    createAndAddLabel: 'ictech-multi-cart.selector.createAndAdd'|trans,
+    addToSelectedCartLabel: 'ictech-multi-cart.selector.addToSelectedCart'|trans,
+    currentProductLabel: 'ictech-multi-cart.selector.currentProduct'|trans,
+    pendingProductLabel: 'ictech-multi-cart.selector.pendingProduct'|trans,
+    noCartsLabel: 'ictech-multi-cart.selector.noCarts'|trans,
+    itemsLabel: 'ictech-multi-cart.selector.items'|trans,
+    addHereLabel: 'ictech-multi-cart.selector.addHere'|trans,
+    activeCartLabel: 'ictech-multi-cart.selector.activeCart'|trans,
+    chooseCartLabel: 'ictech-multi-cart.selector.chooseCart'|trans,
+    cartProductsLabel: 'ictech-multi-cart.selector.cartProducts'|trans,
+    orderSummaryLabel: 'ictech-multi-cart.selector.orderSummary'|trans,
+    subtotalLabel: 'ictech-multi-cart.selector.subtotal'|trans,
+    discountLabel: 'ictech-multi-cart.selector.discount'|trans,
+    totalLabel: 'ictech-multi-cart.selector.total'|trans,
+    createAnotherCartLabel: 'ictech-multi-cart.selector.createAnotherCart'|trans,
+    continueShoppingLabel: 'ictech-multi-cart.selector.continueShopping'|trans,
+    checkoutLabel: 'ictech-multi-cart.selector.checkout'|trans,
+    myCartsLabel: 'ictech-multi-cart.selector.myCarts'|trans,
+    promoPlaceholder: 'ictech-multi-cart.selector.promoPlaceholder'|trans,
+    promoCodeLabel: 'ictech-multi-cart.selector.promoCode'|trans,
+    promoApplyLabel: 'ictech-multi-cart.selector.promoApply'|trans,
+    promoAppliedLabel: 'ictech-multi-cart.selector.promoApplied'|trans,
+    promoSavedLabel: 'ictech-multi-cart.selector.promoSaved'|trans,
+    promoRemovedLabel: 'ictech-multi-cart.selector.promoRemoved'|trans,
+    promoHelpLabel: 'ictech-multi-cart.selector.promoHelp'|trans,
+    createDisabledLimitLabel: 'ictech-multi-cart.selector.createDisabledLimit'|trans({'%limit%': ictechMultiCart.get('maxCartsPerUser')}),
+    createDisabledUnavailableLabel: 'ictech-multi-cart.selector.createDisabledUnavailable'|trans,
+    cartProductsEmptyLabel: 'ictech-multi-cart.selector.cartProductsEmpty'|trans,
+    switchCartErrorLabel: 'ictech-multi-cart.selector.switchCartError'|trans,
+    selectCartRequiredLabel: 'ictech-multi-cart.selector.selectCartRequired'|trans,
+    cartNameRequiredLabel: 'ictech-multi-cart.selector.cartNameRequired'|trans,
+    createErrorLabel: 'ictech-multi-cart.selector.createError'|trans,
+    addErrorLabel: 'ictech-multi-cart.selector.addError'|trans,
+    addedSuccessLabel: 'ictech-multi-cart.selector.addedSuccess'|trans,
+    productFallbackLabel: 'ictech-multi-cart.selector.productFallback'|trans,
+    cartFallbackLabel: 'ictech-multi-cart.selector.cartFallback'|trans
+} %}
+
+{% block component_product_box_action_inner %}
+    {% set id = product.id %}
+    <div class="product-action">
+        {% set isAvailable = not product.isCloseout or (product.stock >= product.minPurchase) %}
+        {% set displayFrom = product.calculatedPrices.count > 1 %}
+        {% set displayBuyButton = isAvailable and not displayFrom and product.childCount <= 0 %}
+
+        {% if displayBuyButton and config('core.listing.allowBuyInListing') %}
+            {% block component_product_box_action_buy %}
+                <form action="{{ path('frontend.checkout.line-item.add') }}"
+                      method="post"
+                      class="buy-widget"
+                      {% if not ictechMultiCartActive %}data-add-to-cart="true"{% endif %}
+                      {% if ictechMultiCartActive %}data-ictech-multi-cart-add-to-cart="true"{% endif %}
+                      data-multi-cart-enabled="{{ ictechMultiCartActive ? 'true' : 'false' }}"
+                      data-multi-cart-state-url="{{ path('frontend.ictech.multi_cart.state') }}"
+                      data-multi-cart-create-url="{{ path('frontend.ictech.multi_cart.create') }}"
+                      data-multi-cart-activate-url="{{ path('frontend.ictech.multi_cart.activate') }}"
+                      data-multi-cart-add-url="{{ path('frontend.ictech.multi_cart.add_product') }}"
+                      data-multi-cart-promotion-url="{{ path('frontend.ictech.multi_cart.promotion') }}"
+                      data-multi-cart-checkout-url-template="{{ path('frontend.ictech.multi_cart.checkout.cart', { cartId: '__cartId__' }) }}"
+                      data-multi-cart-carts-url="{{ path('frontend.ictech.multi_cart.account.page') }}"
+                      data-multi-cart-labels="{{ ictechMultiCartLabels|json_encode|e('html_attr') }}">
+                    {% block component_product_box_action_form %}
+                        {% block component_product_box_action_buy_redirect_input %}
+                            <input type="hidden"
+                                   name="redirectTo"
+                                   value="frontend.detail.page">
+
+                            <input type="hidden"
+                                   name="redirectParameters"
+                                   data-redirect-parameters="true"
+                                   value="{{ {productId: id}|json_encode }}">
+                        {% endblock %}
+
+                        {% block component_product_box_action_buy_info %}
+                            {% block page_product_detail_buy_product_buy_info %}
+                                <input type="hidden"
+                                       name="lineItems[{{ id }}][id]"
+                                       value="{{ id }}">
+                                <input type="hidden"
+                                       name="lineItems[{{ id }}][referencedId]"
+                                       value="{{ id }}">
+                                <input type="hidden"
+                                       name="lineItems[{{ id }}][type]"
+                                       value="product">
+                                <input type="hidden"
+                                       name="lineItems[{{ id }}][stackable]"
+                                       value="1">
+                                <input type="hidden"
+                                       name="lineItems[{{ id }}][removable]"
+                                       value="1">
+                                <input type="hidden"
+                                       name="lineItems[{{ id }}][quantity]"
+                                       value="{{ product.minPurchase }}">
+                            {% endblock %}
+                        {% endblock %}
+
+                        {% block component_product_box_action_buy_meta %}
+                            {% block page_product_detail_product_buy_meta %}
+                                <input type="hidden"
+                                       name="product-name"
+                                       value="{{ product.translated.name }}">
+                            {% endblock %}
+                        {% endblock %}
+
+                        {% block component_product_box_action_buy_button %}
+                            {% block page_product_detail_product_buy_button %}
+                                <div class="d-grid">
+                                    <button class="btn btn-buy"
+                                            type="submit"
+                                            title="{{ 'listing.boxAddProduct'|trans|striptags }}">
+                                        {% block page_product_detail_product_buy_button_label %}
+                                            {{ 'listing.boxAddProduct'|trans|sw_sanitize }}
+                                        {% endblock %}
+                                    </button>
+                                </div>
+                            {% endblock %}
+                        {% endblock %}
+                    {% endblock %}
+                </form>
+            {% endblock %}
+        {% else %}
+            {% block component_product_box_action_detail %}
+                <div class="d-grid">
+                    <a href="{{ seoUrl('frontend.detail.page', {productId: id}) }}"
+                       class="btn btn-light btn-detail"
+                       title="{{ 'listing.boxProductDetails'|trans|striptags }}">
+                        {% block component_product_box_action_detail_label %}
+                            {{ 'listing.boxProductDetails'|trans|sw_sanitize }}
+                        {% endblock %}
+                    </a>
+                </div>
+            {% endblock %}
+        {% endif %}
+    </div>
+
+    {% if not feature('v6.7.0.0') %}
+        {% block component_product_box_action_meta %}
+            <input type="hidden"
+                   name="product-name"
+                   value="{{ product.translated.name }}">
+
+            <input type="hidden"
+                   name="product-id"
+                   value="{{ id }}">
+        {% endblock %}
+    {% endif %}
+
+    {% if ictechMultiCartActive %}
+        {% sw_include '@ICTECHMultiCart/storefront/component/multi-cart/inline-script.html.twig' %}
+    {% endif %}
+{% endblock %}
