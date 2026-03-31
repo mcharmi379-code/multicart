@@ -17,6 +17,7 @@
                   data-multi-cart-activate-url="{{ path('frontend.ictech.multi_cart.activate') }}"
                   data-multi-cart-add-url="{{ path('frontend.ictech.multi_cart.add_product') }}"
                   data-multi-cart-promotion-url="{{ path('frontend.ictech.multi_cart.promotion') }}"
+                  data-multi-cart-rename-url-template="{{ path('frontend.ictech.multi_cart.account.rename', { cartId: '__cartId__' }) }}"
                   data-multi-cart-checkout-url-template="{{ path('frontend.ictech.multi_cart.checkout.cart', { cartId: '__cartId__' }) }}"
                   data-multi-cart-carts-url="{{ path('frontend.ictech.multi_cart.account.page') }}"
                   data-multi-cart-labels="{{ ictechMultiCartLabels|json_encode|e('html_attr') }}">

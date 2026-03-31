@@ -370,12 +370,18 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
 
         const renameButton = container.querySelector('[data-multi-cart-rename-save]');
         if (renameButton) {
-            renameButton.addEventListener('click', async () => {
+            renameButton.addEventListener('click', async (event) => {
+                event.preventDefault();
                 const renameInput = container.querySelector('[data-multi-cart-rename-input]');
                 const nextName = renameInput ? renameInput.value.trim() : '';
 
                 if (!this._selectedCartId) {
                     this._setFeedback(this._labels.selectCartRequiredLabel || 'Please choose a cart first.');
+                    return;
+                }
+
+                if (!nextName) {
+                    this._setFeedback(this._labels.renameNameRequiredLabel || 'Please enter a cart name.');
                     return;
                 }
 
