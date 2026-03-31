@@ -9,7 +9,7 @@
             <strong class="order-table-header-label">{{ 'ictech-multi-cart.orderHistory.cartLabel'|trans|sw_sanitize }}</strong>
             <span class="order-table-body-value">{{ ictechOrderMeta.cartName }}</span>
             <strong class="order-table-header-label ms-3">{{ 'ictech-multi-cart.orderHistory.statusLabel'|trans|sw_sanitize }}</strong>
-            <span class="badge badge-light ms-2">{{ order.stateMachineState.translated.name }}</span>
+            <span class="badge bg-dark text-white ms-2">{{ order.stateMachineState.translated.name }}</span>
         </div>
     {% endif %}
 {% endblock %}

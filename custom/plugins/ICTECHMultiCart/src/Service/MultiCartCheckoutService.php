@@ -61,7 +61,28 @@ final class MultiCartCheckoutService
             return false;
         }
 
-        return $this->prepareSelectedCarts([$selectedCart], $salesChannelContext);
+        $normalizedCart = $this->normalizePreparedCart($selectedCart);
+
+        if ($normalizedCart === null) {
+            $this->clearPreparedCheckout();
+
+            return false;
+        }
+
+        /** @var list<array{
+         *     id?: mixed,
+         *     name?: mixed,
+         *     items: list<array{productId?: mixed, quantity?: mixed}>,
+         *     promotionCode?: mixed,
+         *     shippingAddressId?: mixed,
+         *     billingAddressId?: mixed,
+         *     paymentMethodId?: mixed,
+         *     shippingMethodId?: mixed
+         * }> $selectedCarts
+         */
+        $selectedCarts = [$normalizedCart];
+
+        return $this->prepareSelectedCarts($selectedCarts, $salesChannelContext);
     }
 
     /**
@@ -112,6 +133,7 @@ final class MultiCartCheckoutService
     /**
      * @param list<array{
      *     id?: mixed,
+     *     name?: mixed,
      *     items: list<array{productId?: mixed, quantity?: mixed}>,
      *     promotionCode?: mixed,
      *     shippingAddressId?: mixed,
@@ -216,6 +238,7 @@ final class MultiCartCheckoutService
      *
      * @return list<array{
      *     id?: mixed,
+     *     name?: mixed,
      *     items: list<array{productId?: mixed, quantity?: mixed}>,
      *     promotionCode?: mixed,
      *     shippingAddressId?: mixed,
@@ -232,11 +255,17 @@ final class MultiCartCheckoutService
         foreach ($cartIds as $cartId) {
             $cart = $this->findCart($state['carts'], $cartId);
 
-            if ($cart === null || !is_array($cart['items'] ?? null) || $cart['items'] === []) {
+            if ($cart === null) {
                 continue;
             }
 
-            $selectedCarts[] = $cart;
+            $normalizedCart = $this->normalizePreparedCart($cart);
+
+            if ($normalizedCart === null) {
+                continue;
+            }
+
+            $selectedCarts[] = $normalizedCart;
         }
 
         return $selectedCarts;
@@ -318,6 +347,57 @@ final class MultiCartCheckoutService
         }
 
         return null;
+    }
+
+    /**
+     * @param array<string, mixed> $cart
+     *
+     * @return array{
+     *     id?: mixed,
+     *     name?: mixed,
+     *     items: list<array{productId?: mixed, quantity?: mixed}>,
+     *     promotionCode?: mixed,
+     *     shippingAddressId?: mixed,
+     *     billingAddressId?: mixed,
+     *     paymentMethodId?: mixed,
+     *     shippingMethodId?: mixed
+     * }|null
+     */
+    private function normalizePreparedCart(array $cart): ?array
+    {
+        $items = $cart['items'] ?? null;
+
+        if (!is_array($items) || $items === []) {
+            return null;
+        }
+
+        $normalizedItems = [];
+
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $normalizedItems[] = [
+                'productId' => $item['productId'] ?? null,
+                'quantity' => $item['quantity'] ?? null,
+            ];
+        }
+
+        if ($normalizedItems === []) {
+            return null;
+        }
+
+        return [
+            'id' => $cart['id'] ?? null,
+            'name' => $cart['name'] ?? null,
+            'items' => $normalizedItems,
+            'promotionCode' => $cart['promotionCode'] ?? null,
+            'shippingAddressId' => $cart['shippingAddressId'] ?? null,
+            'billingAddressId' => $cart['billingAddressId'] ?? null,
+            'paymentMethodId' => $cart['paymentMethodId'] ?? null,
+            'shippingMethodId' => $cart['shippingMethodId'] ?? null,
+        ];
     }
 
     private function getContextField(string $cartField): ?string

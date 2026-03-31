@@ -9,6 +9,7 @@
     root.dataset.ictechBound = 'true';
 
     const createModal = root.querySelector('[data-ictech-create-modal]');
+    const addressModal = root.querySelector('[data-ictech-address-modal]');
     const combinedModal = root.querySelector('[data-ictech-combined-modal]');
     const combinedBar = root.querySelector('[data-ictech-combined-bar]');
     const countNode = root.querySelector('[data-ictech-combined-count]');
@@ -18,6 +19,7 @@
     const combinedForm = combinedModal || root.querySelector('[data-ictech-combined-form]');
     const renameUrlTemplate = root.dataset.ictechRenameUrlTemplate || '';
     const promotionUrlTemplate = root.dataset.ictechPromotionUrlTemplate || '';
+    const addressUrl = root.dataset.ictechAddressUrl || '';
 
     const formatAmount = (value) => Number(value || 0).toFixed(2);
     const formatCurrency = (value, currencyIso) => {
@@ -107,6 +109,7 @@
     root.querySelectorAll('[data-ictech-modal-close]').forEach((button) => {
         button.addEventListener('click', () => {
             closeModal(createModal);
+            closeModal(addressModal);
             closeModal(combinedModal);
         });
     });
@@ -141,6 +144,14 @@
         if (combinedCheckbox) {
             combinedCheckbox.setAttribute('data-ictech-cart-name', nextName);
         }
+
+        if (card.classList.contains('is-active')) {
+            const activeCartName = root.querySelector('[data-ictech-active-cart-name]');
+
+            if (activeCartName) {
+                activeCartName.textContent = nextName;
+            }
+        }
     };
 
     root.querySelectorAll('.ictech-account-carts__card').forEach((card) => {
@@ -149,8 +160,7 @@
         const input = card.querySelector('[data-ictech-rename-input]');
         const cancel = card.querySelector('[data-ictech-rename-cancel]');
         const save = card.querySelector('[data-ictech-rename-save]');
-        const checkbox = card.querySelector('[data-ictech-combined-cart]');
-        const cartId = checkbox ? checkbox.getAttribute('data-cart-id') : '';
+        const cartId = card.getAttribute('data-cart-id') || '';
 
         if (!toggle || !form || !input || !cancel || !save || !cartId || !renameUrlTemplate) {
             return;
@@ -388,6 +398,189 @@
         });
     });
 
+    root.querySelectorAll('[data-ictech-promotion-remove]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const cartId = button.getAttribute('data-cart-id');
+            const card = button.closest('.ictech-account-carts__card');
+            const input = card ? card.querySelector('[data-ictech-promotion-input]') : null;
+            const applyButton = card ? card.querySelector('[data-ictech-promotion-apply]') : null;
+
+            if (!cartId || !card || !input || !promotionUrlTemplate) {
+                return;
+            }
+
+            setPromotionFeedback(card, '');
+            button.disabled = true;
+            input.disabled = true;
+
+            if (applyButton) {
+                applyButton.disabled = true;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('promotionCode', '');
+
+                const response = await fetch(promotionUrlTemplate.replace('__cartId__', cartId), {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: formData,
+                });
+
+                const payload = await response.json().catch(() => ({}));
+
+                if (!response.ok || payload.success !== true) {
+                    if (payload.cart) {
+                        updateCardSummary(card, payload.cart);
+                    }
+
+                    setPromotionFeedback(card, payload.message || root.dataset.ictechPromoFailedLabel || '', true);
+                    return;
+                }
+
+                if (payload.cart) {
+                    updateCardSummary(card, payload.cart);
+                } else {
+                    input.value = '';
+                }
+
+                setPromotionFeedback(card, payload.message || root.dataset.ictechPromoRemovedLabel || '', false);
+            } catch (error) {
+                console.error('Failed to remove promotion', error);
+                setPromotionFeedback(card, root.dataset.ictechPromoFailedLabel || '', true);
+            } finally {
+                button.disabled = false;
+                input.disabled = false;
+
+                if (applyButton) {
+                    applyButton.disabled = false;
+                }
+            }
+        });
+    });
+
+    const updateAddressOptions = (options) => {
+        if (!options || !Array.isArray(options.addresses)) {
+            return;
+        }
+
+        root.querySelectorAll('[data-ictech-preference="shippingAddressId"], [data-ictech-preference="billingAddressId"]').forEach((select) => {
+            const currentValue = select.value;
+            const placeholder = select.querySelector('option[value=""]');
+
+            select.innerHTML = '';
+
+            if (placeholder) {
+                select.appendChild(placeholder.cloneNode(true));
+            }
+
+            options.addresses.forEach((address) => {
+                const option = document.createElement('option');
+                option.value = address.id;
+                option.textContent = address.label;
+                select.appendChild(option);
+            });
+
+            if ([...select.options].some((option) => option.value === currentValue)) {
+                select.value = currentValue;
+            }
+        });
+    };
+
+    root.querySelectorAll('[data-ictech-add-address]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+
+            if (!addressModal) {
+                return;
+            }
+
+            const card = link.closest('.ictech-account-carts__card');
+            const cartId = card ? card.getAttribute('data-cart-id') : '';
+            const targetField = link.getAttribute('data-ictech-address-target') || '';
+            const cartIdInput = addressModal.querySelector('[data-ictech-address-cart-id]');
+            const targetFieldInput = addressModal.querySelector('[data-ictech-address-target-field]');
+            const feedback = addressModal.querySelector('[data-ictech-address-feedback]');
+
+            if (!cartId || !cartIdInput || !targetFieldInput) {
+                return;
+            }
+
+            addressModal.reset();
+            cartIdInput.value = cartId;
+            targetFieldInput.value = targetField;
+
+            if (feedback) {
+                feedback.textContent = '';
+                feedback.hidden = true;
+                feedback.classList.remove('is-error', 'is-success');
+            }
+
+            openModal(addressModal);
+        });
+    });
+
+    if (addressModal) {
+        addressModal.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            if (!addressUrl) {
+                return;
+            }
+
+            const formData = new FormData(addressModal);
+            const cartId = formData.get('cartId');
+            const targetField = formData.get('targetField');
+            const feedback = addressModal.querySelector('[data-ictech-address-feedback]');
+
+            try {
+                const response = await fetch(addressUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: formData,
+                });
+
+                const payload = await response.json().catch(() => ({}));
+
+                if (!response.ok || payload.success !== true) {
+                    if (feedback) {
+                        feedback.textContent = payload.message || '{{ "ictech-multi-cart.account.addressCreateFailed"|trans|e("js") }}';
+                        feedback.hidden = false;
+                        feedback.classList.add('is-error');
+                    }
+
+                    return;
+                }
+
+                updateAddressOptions(payload.options || null);
+
+                if (typeof cartId === 'string' && cartId !== '' && typeof targetField === 'string' && targetField !== '') {
+                    const card = root.querySelector(`.ictech-account-carts__card[data-cart-id="${cartId}"]`);
+                    const select = card ? card.querySelector(`[data-ictech-preference="${targetField}"]`) : null;
+
+                    if (select && payload.addressId) {
+                        select.value = payload.addressId;
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+
+                closeModal(addressModal);
+            } catch (error) {
+                console.error('Failed to create address', error);
+
+                if (feedback) {
+                    feedback.textContent = '{{ "ictech-multi-cart.account.addressCreateFailed"|trans|e("js") }}';
+                    feedback.hidden = false;
+                    feedback.classList.add('is-error');
+                }
+            }
+        });
+    }
+
     const syncCombinedBar = () => {
         const selected = [...root.querySelectorAll('[data-ictech-combined-cart]:checked')];
         const total = selected.reduce((carry, checkbox) => carry + Number(checkbox.getAttribute('data-ictech-cart-total') || 0), 0);
@@ -411,6 +604,11 @@
 
     root.querySelectorAll('[data-ictech-combined-open]').forEach((button) => {
         button.addEventListener('click', () => {
+            if (root.dataset.ictechCombinedEnabled !== 'true') {
+                window.alert(root.dataset.ictechCombinedDisabledLabel || '');
+                return;
+            }
+
             const selectedCards = getSelectedCards();
 
             if (selectedCards.length === 0 || !cartIdContainer) {

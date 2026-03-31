@@ -208,7 +208,46 @@ final class MultiCartAccountController extends StorefrontController
         return new JsonResponse([
             'success' => true,
             'name' => $name,
+            'state' => $this->contextService->getState($salesChannelContext),
             'message' => $this->trans('ictech-multi-cart.account.renameSuccess'),
+        ]);
+    }
+
+    #[Route(path: '/account/my-carts/address', name: 'frontend.ictech.multi_cart.account.address.create', defaults: ['_loginRequired' => true, 'XmlHttpRequest' => true], methods: ['POST'])]
+    public function createAddress(Request $request, SalesChannelContext $salesChannelContext): JsonResponse
+    {
+        /** @var array{
+         *     firstName?: string|null,
+         *     lastName?: string|null,
+         *     street?: string|null,
+         *     zipcode?: string|null,
+         *     city?: string|null,
+         *     countryId?: string|null
+         * } $payload
+         */
+        $payload = [
+            'firstName' => $this->getNullableStringRequestValue($request, 'firstName'),
+            'lastName' => $this->getNullableStringRequestValue($request, 'lastName'),
+            'street' => $this->getNullableStringRequestValue($request, 'street'),
+            'zipcode' => $this->getNullableStringRequestValue($request, 'zipcode'),
+            'city' => $this->getNullableStringRequestValue($request, 'city'),
+            'countryId' => $this->getNullableStringRequestValue($request, 'countryId'),
+        ];
+
+        $result = $this->contextService->createCustomerAddress($payload, $salesChannelContext);
+
+        if (!$result['success']) {
+            return new JsonResponse([
+                'success' => false,
+                'message' => $this->trans('ictech-multi-cart.account.addressCreateFailed'),
+            ], JsonResponse::HTTP_BAD_REQUEST);
+        }
+
+        return new JsonResponse([
+            'success' => true,
+            'message' => $this->trans('ictech-multi-cart.account.addressCreateSuccess'),
+            'addressId' => $result['addressId'] ?? null,
+            'options' => $result['options'] ?? null,
         ]);
     }
 

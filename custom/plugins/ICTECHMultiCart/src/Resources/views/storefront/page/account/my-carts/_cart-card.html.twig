@@ -1,4 +1,4 @@
-<article class="ictech-account-carts__card{% if cart.isActive %} is-active{% endif %}">
+<article class="ictech-account-carts__card{% if cart.isActive %} is-active{% endif %}" data-cart-id="{{ cart.id }}">
     <div class="ictech-account-carts__card-header">
         <div class="ictech-account-carts__title-wrap">
             <div class="ictech-account-carts__title-row">
@@ -8,9 +8,11 @@
                         data-ictech-rename-toggle
                         aria-label="{{ 'ictech-multi-cart.account.renameButton'|trans|striptags }}">
                     {% sw_icon 'pencil' style { size: 'sm', ariaHidden: true } %}
+                    <span>{{ 'ictech-multi-cart.account.renameButton'|trans }}</span>
                 </button>
             </div>
             <form class="ictech-account-carts__rename-form" hidden data-ictech-rename-form>
+                <p class="ictech-account-carts__rename-hint">{{ 'ictech-multi-cart.account.renameHint'|trans }}</p>
                 <input type="text"
                        class="ictech-account-carts__input"
                        name="name"
@@ -51,11 +53,13 @@
                     {% sw_icon 'arrow-switch' style { size: 'sm', ariaHidden: true } %}
                 </button>
             </form>
-            <form method="post" action="{{ path('frontend.ictech.multi_cart.account.delete', { cartId: cart.id }) }}" class="ictech-account-carts__icon-form">
-                <button type="submit" class="ictech-account-carts__icon-btn ictech-account-carts__icon-btn--danger" title="{{ 'ictech-multi-cart.account.delete'|trans|striptags }}">
-                    {% sw_icon 'trash' style { size: 'sm', ariaHidden: true } %}
-                </button>
-            </form>
+            {% if not cart.isDefault %}
+                <form method="post" action="{{ path('frontend.ictech.multi_cart.account.delete', { cartId: cart.id }) }}" class="ictech-account-carts__icon-form">
+                    <button type="submit" class="ictech-account-carts__icon-btn ictech-account-carts__icon-btn--danger" title="{{ 'ictech-multi-cart.account.delete'|trans|striptags }}">
+                        {% sw_icon 'trash' style { size: 'sm', ariaHidden: true } %}
+                    </button>
+                </form>
+            {% endif %}
         </div>
     </div>
 
@@ -100,7 +104,9 @@
             {% endfor %}
         </select>
         <a href="{{ path('frontend.account.address.create.page', { redirectTo: 'frontend.ictech.multi_cart.account.page' }) }}"
-           class="ictech-account-carts__helper-link">
+           class="ictech-account-carts__helper-link"
+           data-ictech-add-address
+           data-ictech-address-target="shippingAddressId">
             {{ 'ictech-multi-cart.account.addNewAddress'|trans }}
         </a>
     </div>
@@ -123,7 +129,9 @@
             {% endfor %}
         </select>
         <a href="{{ path('frontend.account.address.create.page', { redirectTo: 'frontend.ictech.multi_cart.account.page' }) }}"
-           class="ictech-account-carts__helper-link">
+           class="ictech-account-carts__helper-link"
+           data-ictech-add-address
+           data-ictech-address-target="billingAddressId">
             {{ 'ictech-multi-cart.account.addNewAddress'|trans }}
         </a>
     </div>
@@ -166,6 +174,12 @@
                         data-cart-id="{{ cart.id }}">
                     {{ 'ictech-multi-cart.account.promoApply'|trans }}
                 </button>
+                <button type="button"
+                        class="ictech-account-carts__btn ictech-account-carts__btn--ghost"
+                        data-ictech-promotion-remove
+                        data-cart-id="{{ cart.id }}">
+                    {{ 'ictech-multi-cart.account.promoRemove'|trans }}
+                </button>
             </div>
             <p class="ictech-account-carts__promo-feedback" hidden data-ictech-promotion-feedback></p>
         </div>
@@ -187,15 +201,19 @@
         {% endfor %}
     </ul>
 
-    {% if page.state.checkoutPrefsEnabled and page.state.multiPaymentEnabled %}
+    {% if page.state.checkoutPrefsEnabled %}
         <label class="ictech-account-carts__combined">
             <input type="checkbox"
                    value="{{ cart.id }}"
                    data-ictech-combined-cart
                    data-ictech-cart-total="{{ cart.total }}"
                    data-ictech-cart-name="{{ cart.name }}"
-                   data-cart-id="{{ cart.id }}">
+                   data-cart-id="{{ cart.id }}"
+                   {% if not page.state.multiPaymentEnabled %}disabled{% endif %}>
             <span>{{ 'ictech-multi-cart.account.combined.selectLabel'|trans }}</span>
         </label>
+        {% if not page.state.multiPaymentEnabled %}
+            <p class="ictech-account-carts__combined-note">{{ 'ictech-multi-cart.account.combined.disabledMessage'|trans }}</p>
+        {% endif %}
     {% endif %}
 </article>

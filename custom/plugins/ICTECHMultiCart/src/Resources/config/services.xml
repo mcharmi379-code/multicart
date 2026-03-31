@@ -49,6 +49,7 @@
             <argument type="service" id="request_stack" />
             <argument type="service" id="ICTECHMultiCart\Service\MultiCartStorefrontConfigService" />
             <argument type="service" id="ICTECHMultiCart\Service\MultiCartPriceCalculatorService" />
+            <argument type="service" id="customer_address.repository" />
         </service>
 
         <service id="ICTECHMultiCart\Subscriber\Storefront\MultiCartStorefrontSubscriber">
@@ -73,6 +74,7 @@
         <service id="ICTECHMultiCart\Subscriber\Storefront\MultiCartOrderSubscriber">
             <argument type="service" id="Doctrine\DBAL\Connection" />
             <argument type="service" id="ICTECHMultiCart\Service\MultiCartCheckoutService" />
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartStorefrontContextService" />
             <tag name="kernel.event_subscriber" />
         </service>
 

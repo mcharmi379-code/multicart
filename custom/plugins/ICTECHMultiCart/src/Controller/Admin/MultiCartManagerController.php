@@ -299,6 +299,68 @@ final class MultiCartManagerController
         throw new \UnexpectedValueException(sprintf('Expected bool value for "%s".', $key));
     }
 
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function getNullableStringFromRow(array $row, string $key): ?string
+    {
+        $value = $row[$key] ?? null;
+
+        if (is_string($value)) {
+            return $value;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function getFloatFromRow(array $row, string $key): float
+    {
+        $value = $row[$key] ?? null;
+
+        if (is_float($value)) {
+            return $value;
+        }
+
+        if (is_int($value)) {
+            return (float) $value;
+        }
+
+        if (is_string($value) && is_numeric($value)) {
+            return (float) $value;
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function getIntFromRow(array $row, string $key): int
+    {
+        $value = $row[$key] ?? null;
+
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && is_numeric($value)) {
+            return (int) $value;
+        }
+
+        if (is_float($value)) {
+            return (int) $value;
+        }
+
+        return 0;
+    }
+
     private function normalizeScalarInt(mixed $value): int
     {
         if (is_int($value)) {
@@ -497,19 +559,19 @@ SQL,
                 'id' => $cartId,
                 'name' => $this->getRequiredStringFromRow($row, 'name'),
                 'status' => $this->getRequiredStringFromRow($row, 'status'),
-                'promotionCode' => $row['promotionCode'],
-                'promotionDiscount' => (float) ($row['promotionDiscount'] ?? 0),
-                'subtotal' => (float) ($row['subtotal'] ?? 0),
-                'total' => (float) ($row['total'] ?? 0),
-                'createdAt' => $row['createdAt'],
-                'updatedAt' => $row['updatedAt'],
-                'itemCount' => (int) ($row['itemCount'] ?? 0),
-                'items' => array_map(static fn (array $item): array => [
-                    'productName' => (string) ($item['productName'] ?? ''),
-                    'productNumber' => (string) ($item['productNumber'] ?? ''),
-                    'quantity' => (int) ($item['quantity'] ?? 0),
-                    'unitPrice' => (float) ($item['unitPrice'] ?? 0),
-                    'totalPrice' => (float) ($item['totalPrice'] ?? 0),
+                'promotionCode' => $this->getNullableStringFromRow($row, 'promotionCode'),
+                'promotionDiscount' => $this->getFloatFromRow($row, 'promotionDiscount'),
+                'subtotal' => $this->getFloatFromRow($row, 'subtotal'),
+                'total' => $this->getFloatFromRow($row, 'total'),
+                'createdAt' => $this->getNullableStringFromRow($row, 'createdAt'),
+                'updatedAt' => $this->getNullableStringFromRow($row, 'updatedAt'),
+                'itemCount' => $this->getIntFromRow($row, 'itemCount'),
+                'items' => array_map(fn (array $item): array => [
+                    'productName' => $this->getNullableStringFromRow($item, 'productName') ?? '',
+                    'productNumber' => $this->getNullableStringFromRow($item, 'productNumber') ?? '',
+                    'quantity' => $this->getIntFromRow($item, 'quantity'),
+                    'unitPrice' => $this->getFloatFromRow($item, 'unitPrice'),
+                    'totalPrice' => $this->getFloatFromRow($item, 'totalPrice'),
                 ], $items),
             ];
         }, $rows);

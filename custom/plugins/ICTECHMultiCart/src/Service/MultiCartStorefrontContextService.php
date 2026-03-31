@@ -6,6 +6,8 @@ use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Ramsey\Uuid\Uuid;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
+use Shopware\Core\Checkout\Customer\Aggregate\CustomerAddress\CustomerAddressCollection;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Struct\ArrayStruct;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -19,12 +21,15 @@ final class MultiCartStorefrontContextService
     private const CREATE_CART_REASON_CUSTOMER_NOT_ALLOWED = 'customer_not_allowed';
     private const CREATE_CART_REASON_BLACKLISTED = 'blacklisted';
     private const CREATE_CART_REASON_LIMIT_REACHED = 'limit_reached';
+    private ?bool $hasIsDefaultColumn = null;
 
     public function __construct(
         private readonly Connection $connection,
         private readonly RequestStack $requestStack,
         private readonly MultiCartStorefrontConfigService $configService,
-        private readonly MultiCartPriceCalculatorService $priceCalculator
+        private readonly MultiCartPriceCalculatorService $priceCalculator,
+        /** @var EntityRepository<CustomerAddressCollection> */
+        private readonly EntityRepository $customerAddressRepository
     ) {
     }
 
@@ -131,7 +136,7 @@ final class MultiCartStorefrontContextService
         $paymentMethodId = $salesChannelContext->getPaymentMethod()->getId();
         $shippingMethodId = $salesChannelContext->getShippingMethod()->getId();
 
-        $this->connection->insert('ictech_multi_cart', [
+        $insert = [
             'id' => $this->toBinary($cartId),
             'customer_id' => $this->toBinary($customer->getId()),
             'sales_channel_id' => $this->toBinary($salesChannelContext->getSalesChannelId()),
@@ -151,7 +156,13 @@ final class MultiCartStorefrontContextService
             'currency_iso' => $currencyIso,
             'created_at' => $this->now(),
             'updated_at' => null,
-        ]);
+        ];
+
+        if ($this->hasIsDefaultColumn()) {
+            $insert['is_default'] = 0;
+        }
+
+        $this->connection->insert('ictech_multi_cart', $insert);
 
         $this->setActiveCartId($cartId, $salesChannelContext, $customer);
 
@@ -192,6 +203,7 @@ final class MultiCartStorefrontContextService
     /**
      * @return array{
      *     addresses: list<array{id: string, label: string}>,
+     *     countries: list<array{id: string, name: string}>,
      *     paymentMethods: list<array{id: string, name: string}>,
      *     shippingMethods: list<array{id: string, name: string}>
      * }
@@ -203,6 +215,7 @@ final class MultiCartStorefrontContextService
         if ($customerId === null) {
             return [
                 'addresses' => [],
+                'countries' => [],
                 'paymentMethods' => [],
                 'shippingMethods' => [],
             ];
@@ -257,11 +270,30 @@ final class MultiCartStorefrontContextService
             ]
         );
 
+        /** @var list<array<string, mixed>> $countries */
+        $countries = $this->connection->fetchAllAssociative(
+            'SELECT LOWER(HEX(country.id)) AS id,
+                    COALESCE(translation.name, country.iso) AS name
+             FROM country country
+             LEFT JOIN country_translation translation
+                ON translation.country_id = country.id
+               AND translation.language_id = UNHEX(:languageId)
+             WHERE country.active = 1
+             ORDER BY name ASC',
+            [
+                'languageId' => $salesChannelContext->getLanguageId(),
+            ]
+        );
+
         return [
             'addresses' => array_map(fn (array $address): array => [
                 'id' => $this->toNullableString($address['id'] ?? null) ?? '',
                 'label' => $this->toNullableString($address['label'] ?? null) ?? 'Address',
             ], $addresses),
+            'countries' => array_map(fn (array $country): array => [
+                'id' => $this->toNullableString($country['id'] ?? null) ?? '',
+                'name' => $this->toNullableString($country['name'] ?? null) ?? 'Country',
+            ], $countries),
             'paymentMethods' => array_map(fn (array $method): array => [
                 'id' => $this->toNullableString($method['id'] ?? null) ?? '',
                 'name' => $this->toNullableString($method['name'] ?? null) ?? 'Payment',
@@ -337,6 +369,70 @@ final class MultiCartStorefrontContextService
         return true;
     }
 
+    /**
+     * @param array{
+     *     firstName?: string|null,
+     *     lastName?: string|null,
+     *     street?: string|null,
+     *     zipcode?: string|null,
+     *     city?: string|null,
+     *     countryId?: string|null
+     * } $payload
+     *
+     * @return array{
+     *     success: bool,
+     *     addressId?: string,
+     *     options?: array{
+     *         addresses: list<array{id: string, label: string}>,
+     *         countries: list<array{id: string, name: string}>,
+     *         paymentMethods: list<array{id: string, name: string}>,
+     *         shippingMethods: list<array{id: string, name: string}>
+     *     }
+     * }
+     */
+    public function createCustomerAddress(array $payload, SalesChannelContext $salesChannelContext): array
+    {
+        $customer = $salesChannelContext->getCustomer();
+
+        if (!$customer instanceof CustomerEntity) {
+            return [
+                'success' => false,
+            ];
+        }
+
+        $firstName = $this->normalizeNonEmptyString($payload['firstName'] ?? null);
+        $lastName = $this->normalizeNonEmptyString($payload['lastName'] ?? null);
+        $street = $this->normalizeNonEmptyString($payload['street'] ?? null);
+        $zipcode = $this->normalizeNonEmptyString($payload['zipcode'] ?? null);
+        $city = $this->normalizeNonEmptyString($payload['city'] ?? null);
+        $countryId = $this->normalizeNonEmptyString($payload['countryId'] ?? null);
+
+        if ($firstName === null || $lastName === null || $street === null || $zipcode === null || $city === null || $countryId === null) {
+            return [
+                'success' => false,
+            ];
+        }
+
+        $addressId = (string) Uuid::uuid4()->getHex();
+
+        $this->customerAddressRepository->create([[
+            'id' => $addressId,
+            'customerId' => $customer->getId(),
+            'countryId' => $countryId,
+            'firstName' => $firstName,
+            'lastName' => $lastName,
+            'street' => $street,
+            'zipcode' => $zipcode,
+            'city' => $city,
+        ]], $salesChannelContext->getContext());
+
+        return [
+            'success' => true,
+            'addressId' => $addressId,
+            'options' => $this->getAccountOptions($salesChannelContext),
+        ];
+    }
+
     public function updateCartName(string $cartId, string $name, SalesChannelContext $salesChannelContext): bool
     {
         $customerId = $this->getManagedCustomerId($salesChannelContext);
@@ -396,12 +492,13 @@ final class MultiCartStorefrontContextService
             ];
         }
 
+        $normalizedPromotionCode = trim($promotionCode);
         $previousCart = $this->getCartSummary($cartId, $salesChannelContext);
         $previousPromotionCode = is_string($previousCart['promotionCode'] ?? null)
             ? trim((string) $previousCart['promotionCode'])
             : '';
 
-        if (!$this->updateCartPreferences($cartId, ['promotionCode' => $promotionCode], $salesChannelContext)) {
+        if (!$this->updateCartPreferences($cartId, ['promotionCode' => $normalizedPromotionCode], $salesChannelContext)) {
             return [
                 'success' => false,
                 'applied' => false,
@@ -416,15 +513,10 @@ final class MultiCartStorefrontContextService
         $firstError = $result['promotionErrors'][0] ?? null;
         $messageKey = is_array($firstError) ? ($firstError['messageKey'] ?? null) : null;
         $messageParameters = is_array($firstError) ? ($firstError['parameters'] ?? []) : [];
-        $shouldRejectPromotion = $promotionCode !== '' && $messageKey === 'promotion-not-found';
+        $shouldRejectPromotion = $normalizedPromotionCode !== '' && $messageKey === 'promotion-not-found';
 
         if ($shouldRejectPromotion) {
-            $this->connection->update('ictech_multi_cart', [
-                'promotion_code' => $previousPromotionCode !== '' ? $previousPromotionCode : null,
-                'updated_at' => $this->now(),
-            ], [
-                'id' => $this->toBinary($cartId),
-            ]);
+            $this->persistPromotionSnapshot($cartId, $previousPromotionCode, $result['discount']);
 
             $this->priceCalculator->recalculateCart($cartId, $salesChannelContext);
 
@@ -437,9 +529,17 @@ final class MultiCartStorefrontContextService
             ];
         }
 
+        $finalPromotionCode = $normalizedPromotionCode;
+
+        if (!$result['promotionApplied']) {
+            $finalPromotionCode = '';
+        }
+
+        $this->persistPromotionSnapshot($cartId, $finalPromotionCode, $result['discount']);
+
         return [
             'success' => true,
-            'applied' => $promotionCode === '' || $result['promotionApplied'],
+            'applied' => $normalizedPromotionCode === '' || $result['promotionApplied'],
             'messageKey' => is_string($messageKey) ? $messageKey : null,
             'messageParameters' => $messageParameters,
             'state' => $this->getState($salesChannelContext),
@@ -520,7 +620,7 @@ final class MultiCartStorefrontContextService
         $now = $this->now();
         $originalName = is_string($cart['name'] ?? null) && $cart['name'] !== '' ? $cart['name'] : self::DEFAULT_CART_NAME;
 
-        $this->connection->insert('ictech_multi_cart', [
+        $insert = [
             'id' => $this->toBinary($newCartId),
             'customer_id' => $cart['customer_id'],
             'sales_channel_id' => $cart['sales_channel_id'],
@@ -540,7 +640,13 @@ final class MultiCartStorefrontContextService
             'currency_iso' => $cart['currency_iso'] ?? 'EUR',
             'created_at' => $now,
             'updated_at' => null,
-        ]);
+        ];
+
+        if ($this->hasIsDefaultColumn()) {
+            $insert['is_default'] = 0;
+        }
+
+        $this->connection->insert('ictech_multi_cart', $insert);
 
         /** @var list<array<string, mixed>> $items */
         $items = $this->connection->fetchAllAssociative(
@@ -588,6 +694,10 @@ final class MultiCartStorefrontContextService
             return false;
         }
 
+        if ($this->isDefaultCart($cartId)) {
+            return false;
+        }
+
         /** @var mixed $wasActive */
         $wasActive = $this->connection->fetchOne(
             'SELECT is_active
@@ -619,6 +729,23 @@ final class MultiCartStorefrontContextService
         }
 
         return true;
+    }
+
+    public function deleteOrResetCompletedCart(string $cartId, string $customerId, string $salesChannelId): void
+    {
+        if (!$this->cartExistsForCustomer($cartId, $customerId, $salesChannelId)) {
+            return;
+        }
+
+        if ($this->isDefaultCart($cartId)) {
+            $this->resetDefaultCart($cartId);
+
+            return;
+        }
+
+        $this->connection->delete('ictech_multi_cart', [
+            'id' => $this->toBinary($cartId),
+        ]);
     }
 
     /**
@@ -821,7 +948,7 @@ final class MultiCartStorefrontContextService
         $paymentMethodId = $salesChannelContext->getPaymentMethod()->getId();
         $shippingMethodId = $salesChannelContext->getShippingMethod()->getId();
 
-        $this->connection->insert('ictech_multi_cart', [
+        $insert = [
             'id' => $this->toBinary($cartId),
             'customer_id' => $this->toBinary($customer->getId()),
             'sales_channel_id' => $this->toBinary($salesChannelContext->getSalesChannelId()),
@@ -841,7 +968,13 @@ final class MultiCartStorefrontContextService
             'currency_iso' => $currencyIso,
             'created_at' => $this->now(),
             'updated_at' => null,
-        ]);
+        ];
+
+        if ($this->hasIsDefaultColumn()) {
+            $insert['is_default'] = 1;
+        }
+
+        $this->connection->insert('ictech_multi_cart', $insert);
 
         return $cartId;
     }
@@ -851,6 +984,13 @@ final class MultiCartStorefrontContextService
      */
     private function loadCustomerCarts(string $customerId, string $salesChannelId, ?string $languageId = null): array
     {
+        $isDefaultSelect = $this->hasIsDefaultColumn()
+            ? 'cart.is_default AS isDefault,'
+            : '0 AS isDefault,';
+        $isDefaultOrderBy = $this->hasIsDefaultColumn()
+            ? 'cart.is_default DESC, '
+            : '';
+
         /** @var list<array<string, mixed>> $rows */
         $rows = $this->connection->fetchAllAssociative(
             'SELECT LOWER(HEX(cart.id)) AS id,
@@ -860,6 +1000,7 @@ final class MultiCartStorefrontContextService
                     cart.notes,
                     cart.status,
                     cart.cart_token AS cartToken,
+                    ' . $isDefaultSelect . '
                     cart.is_active AS isActive,
                     cart.promotion_code AS promotionCode,
                     cart.promotion_discount AS promotionDiscount,
@@ -894,7 +1035,7 @@ final class MultiCartStorefrontContextService
              WHERE cart.customer_id = UNHEX(:customerId)
                AND cart.sales_channel_id = UNHEX(:salesChannelId)
              GROUP BY cart.id
-             ORDER BY cart.is_active DESC, cart.created_at ASC',
+             ORDER BY cart.is_active DESC, ' . $isDefaultOrderBy . 'cart.created_at ASC',
             [
                 'customerId' => $customerId,
                 'salesChannelId' => $salesChannelId,
@@ -904,14 +1045,20 @@ final class MultiCartStorefrontContextService
 
         $carts = [];
         foreach ($rows as $row) {
+            $cartName = $this->toNullableString($row['name'] ?? null) ?? self::DEFAULT_CART_NAME;
+            $isDefault = $this->hasIsDefaultColumn()
+                ? $this->toBool($row['isDefault'] ?? null)
+                : $this->isLegacyDefaultCartName($cartName);
+
             $carts[] = [
                 'id' => $this->toNullableString($row['id'] ?? null),
                 'customerId' => $this->toNullableString($row['customerId'] ?? null),
                 'salesChannelId' => $this->toNullableString($row['salesChannelId'] ?? null),
-                'name' => $this->toNullableString($row['name'] ?? null) ?? self::DEFAULT_CART_NAME,
+                'name' => $cartName,
                 'notes' => $this->toNullableString($row['notes'] ?? null),
                 'status' => $this->toNullableString($row['status'] ?? null) ?? 'active',
                 'cartToken' => $this->toNullableString($row['cartToken'] ?? null),
+                'isDefault' => $isDefault,
                 'isActive' => $this->toBool($row['isActive'] ?? null),
                 'promotionCode' => $this->toNullableString($row['promotionCode'] ?? null),
                 'promotionDiscount' => $this->toFloat($row['promotionDiscount'] ?? null),
@@ -1077,6 +1224,53 @@ final class MultiCartStorefrontContextService
         );
     }
 
+    private function isDefaultCart(string $cartId): bool
+    {
+        if (!$this->hasIsDefaultColumn()) {
+            /** @var mixed $legacyName */
+            $legacyName = $this->connection->fetchOne(
+                'SELECT name
+                 FROM ictech_multi_cart
+                 WHERE id = UNHEX(:cartId)
+                 LIMIT 1',
+                ['cartId' => $cartId]
+            );
+
+            return $this->isLegacyDefaultCartName($legacyName);
+        }
+
+        /** @var mixed $value */
+        $value = $this->connection->fetchOne(
+            'SELECT is_default
+             FROM ictech_multi_cart
+             WHERE id = UNHEX(:cartId)
+             LIMIT 1',
+            ['cartId' => $cartId]
+        );
+
+        return $this->toBool($value);
+    }
+
+    private function resetDefaultCart(string $cartId): void
+    {
+        $now = $this->now();
+
+        $this->connection->delete('ictech_multi_cart_item', [
+            'multi_cart_id' => $this->toBinary($cartId),
+        ]);
+
+        $this->connection->update('ictech_multi_cart', [
+            'status' => 'active',
+            'promotion_code' => null,
+            'promotion_discount' => 0.0,
+            'subtotal' => 0.0,
+            'total' => 0.0,
+            'updated_at' => $now,
+        ], [
+            'id' => $this->toBinary($cartId),
+        ]);
+    }
+
     private function cartExistsForCustomer(string $cartId, string $customerId, string $salesChannelId): bool
     {
         /** @var mixed $value */
@@ -1230,6 +1424,57 @@ final class MultiCartStorefrontContextService
         }
 
         return false;
+    }
+
+    private function normalizeNonEmptyString(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $normalizedValue = trim($value);
+
+        return $normalizedValue !== '' ? $normalizedValue : null;
+    }
+
+    private function persistPromotionSnapshot(string $cartId, string $promotionCode, float $promotionDiscount): void
+    {
+        $normalizedPromotionCode = trim($promotionCode);
+        $normalizedDiscount = $promotionDiscount > 0 ? $promotionDiscount : 0.0;
+
+        $this->connection->update('ictech_multi_cart', [
+            'promotion_code' => $normalizedPromotionCode !== '' ? $normalizedPromotionCode : null,
+            'promotion_discount' => $normalizedDiscount,
+            'updated_at' => $this->now(),
+        ], [
+            'id' => $this->toBinary($cartId),
+        ]);
+    }
+
+    private function isLegacyDefaultCartName(mixed $value): bool
+    {
+        if (!is_string($value)) {
+            return false;
+        }
+
+        return trim($value) === self::DEFAULT_CART_NAME;
+    }
+
+    private function hasIsDefaultColumn(): bool
+    {
+        if ($this->hasIsDefaultColumn !== null) {
+            return $this->hasIsDefaultColumn;
+        }
+
+        /** @var list<string> $columns */
+        $columns = $this->connection->fetchFirstColumn(
+            'SHOW COLUMNS FROM `ictech_multi_cart` LIKE :columnName',
+            ['columnName' => 'is_default']
+        );
+
+        $this->hasIsDefaultColumn = $columns !== [];
+
+        return $this->hasIsDefaultColumn;
     }
 
     private function toFloat(mixed $value): float

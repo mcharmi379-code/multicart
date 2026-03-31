@@ -105,7 +105,7 @@ final class MultiCartPriceCalculatorService
             $shopwareCart = $this->cartService->recalculate($shopwareCart, $salesChannelContext);
             $price = $shopwareCart->getPrice();
             $total = (float) $price->getTotalPrice();
-            $discount = max(0.0, (float) $price->getPositionPrice() - $total);
+            $discount = $this->calculatePromotionDiscount($shopwareCart);
             $promotionErrors = $this->extractPromotionErrors($shopwareCart, $promotionCode);
             $promotionApplied = $promotionCode === ''
                 || ($promotionErrors === [] && $this->hasAppliedPromotion($shopwareCart, $promotionCode));
@@ -137,7 +137,7 @@ final class MultiCartPriceCalculatorService
      */
     public function recalculateCarts(array $cartIds, SalesChannelContext $salesChannelContext): void
     {
-        $validCartIds = array_values(array_filter($cartIds, static fn (mixed $cartId): bool => is_string($cartId) && $cartId !== ''));
+        $validCartIds = array_values(array_filter($cartIds, static fn (string $cartId): bool => $cartId !== ''));
 
         if ($validCartIds === []) {
             return;
@@ -159,6 +159,23 @@ final class MultiCartPriceCalculatorService
         );
 
         return is_numeric($value) ? (float) $value : 0.0;
+    }
+
+    private function calculatePromotionDiscount(\Shopware\Core\Checkout\Cart\Cart $cart): float
+    {
+        $discount = 0.0;
+
+        foreach ($cart->getLineItems()->filterFlatByType(LineItem::PROMOTION_LINE_ITEM_TYPE) as $lineItem) {
+            $price = $lineItem->getPrice();
+
+            if ($price === null) {
+                continue;
+            }
+
+            $discount += abs((float) $price->getTotalPrice());
+        }
+
+        return $discount;
     }
 
     /**

@@ -89,17 +89,19 @@
             .${rootClass}__input,.${rootClass}__select{width:100%;min-height:46px;padding:.78rem .9rem;border:1px solid #d8e3ef;border-radius:14px;background:#fff}
             .${rootClass}__toolbar,.${rootClass}__actions,.${rootClass}__create{display:grid;gap:.75rem}
             .${rootClass}__promo,.${rootClass}__create{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+            .${rootClass}__promo-actions{display:grid;gap:.55rem;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center}
             .${rootClass}__actions{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:1rem}
             .${rootClass}__primary,.${rootClass}__secondary,.${rootClass}__ghost{min-height:44px;padding:.8rem 1rem;border-radius:999px;font-weight:800;cursor:pointer}
             .${rootClass}__primary{width:100%;margin-top:1rem;border:0;background:linear-gradient(135deg,#0a56c6 0,#083c8d 100%);color:#fff}
             .${rootClass}__secondary{border:0;background:#edf4ff;color:#0a3d8d}
             .${rootClass}__ghost{border:1px solid #d8e3ef;background:#fff;color:#0a3d8d}
+            .${rootClass}__ghost--subtle{background:#f8fbff}
             .${rootClass}__feedback{min-height:1.35rem;margin-top:.85rem;font-weight:700}
             .${rootClass}__feedback.is-error{color:#c0392b}
             .${rootClass}__feedback.is-success{color:#1c7c48}
             .${rootClass}__empty{color:#5a6980}
             @media (max-width: 991.98px){.${rootClass}__layout{grid-template-columns:1fr}}
-            @media (max-width: 767.98px){.${rootClass}{width:100%;border-radius:22px}.${rootClass}-overlay{padding:.5rem}.${rootClass}-overlay[data-ui-style="drawer"]{padding:0}.${rootClass}__shell{padding:1rem}.${rootClass}__promo,.${rootClass}__create,.${rootClass}__actions{grid-template-columns:1fr}}
+            @media (max-width: 767.98px){.${rootClass}{width:100%;border-radius:22px}.${rootClass}-overlay{padding:.5rem}.${rootClass}-overlay[data-ui-style="drawer"]{padding:0}.${rootClass}__shell{padding:1rem}.${rootClass}__promo,.${rootClass}__create,.${rootClass}__actions,.${rootClass}__promo-actions{grid-template-columns:1fr}}
         `;
 
         document.head.appendChild(style);
@@ -203,7 +205,10 @@
         const promotionControls = state.promotionsEnabled ? `
             <div class="${rootClass}__promo" style="margin-top:1rem">
                 <input class="${rootClass}__input" type="text" value="${escapeHtml(promotionValue)}" placeholder="${escapeHtml(labels.promoPlaceholder || 'Promo code (global discount)')}" data-ictech-promo-input>
-                <button type="button" class="${rootClass}__ghost" data-ictech-promo-apply>${escapeHtml(labels.promoApplyLabel || 'Apply')}</button>
+                <div class="${rootClass}__promo-actions">
+                    <button type="button" class="${rootClass}__ghost" data-ictech-promo-apply>${escapeHtml(labels.promoApplyLabel || 'Apply')}</button>
+                    <button type="button" class="${rootClass}__ghost ${rootClass}__ghost--subtle" data-ictech-promo-remove>${escapeHtml(labels.promoRemoveLabel || 'Remove')}</button>
+                </div>
             </div>
         ` : '';
         const promotionSummary = renderPromotionSummary(selectedCart);
@@ -369,6 +374,12 @@
 
         const input = activeDialog.querySelector('[data-ictech-promo-input]');
         const promotionCode = input instanceof HTMLInputElement ? input.value.trim() : '';
+
+        if (promotionCode === '') {
+            setFeedback(activeContext.labels.promoRequiredLabel || 'Please enter a promotion code.', 'error');
+            return;
+        }
+
         const body = new FormData();
         body.append('cartId', activeContext.selectedCartId);
         body.append('promotionCode', promotionCode);
@@ -385,6 +396,21 @@
             ),
             'success'
         );
+    };
+
+    const removePromotion = async () => {
+        if (!activeContext.selectedCartId) {
+            setFeedback(activeContext.labels.selectCartRequiredLabel || 'Please select a cart first.', 'error');
+            return;
+        }
+
+        const body = new FormData();
+        body.append('cartId', activeContext.selectedCartId);
+        body.append('promotionCode', '');
+
+        const response = await request(activeContext.form.dataset.multiCartPromotionUrl, body);
+        refreshState(response.state || activeContext.state);
+        setFeedback(response.message || activeContext.labels.promoRemovedLabel || 'Promotion code removed.', 'success');
     };
 
     const bindDialogEvents = () => {
@@ -444,6 +470,18 @@
             promoButton.addEventListener('click', async () => {
                 try {
                     await updatePromotion();
+                } catch (error) {
+                    setFeedback(error.message || activeContext.labels.addErrorLabel || 'The promotion code could not be updated.', 'error');
+                }
+            });
+        }
+
+        const promoRemoveButton = activeDialog.querySelector('[data-ictech-promo-remove]');
+
+        if (promoRemoveButton) {
+            promoRemoveButton.addEventListener('click', async () => {
+                try {
+                    await removePromotion();
                 } catch (error) {
                     setFeedback(error.message || activeContext.labels.addErrorLabel || 'The promotion code could not be updated.', 'error');
                 }

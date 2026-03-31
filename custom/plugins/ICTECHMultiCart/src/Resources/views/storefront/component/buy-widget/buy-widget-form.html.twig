@@ -35,10 +35,18 @@
     promoPlaceholder: 'ictech-multi-cart.selector.promoPlaceholder'|trans,
     promoCodeLabel: 'ictech-multi-cart.selector.promoCode'|trans,
     promoApplyLabel: 'ictech-multi-cart.selector.promoApply'|trans,
+    promoRequiredLabel: 'ictech-multi-cart.selector.promoRequired'|trans,
+    promoRemoveLabel: 'ictech-multi-cart.account.promoRemove'|trans,
     promoAppliedLabel: 'ictech-multi-cart.selector.promoApplied'|trans,
     promoSavedLabel: 'ictech-multi-cart.selector.promoSaved'|trans,
     promoRemovedLabel: 'ictech-multi-cart.selector.promoRemoved'|trans,
     promoHelpLabel: 'ictech-multi-cart.selector.promoHelp'|trans,
+    renameCartLabel: 'ictech-multi-cart.account.renameButton'|trans,
+    renameLabel: 'ictech-multi-cart.account.renameLabel'|trans,
+    renameSaveLabel: 'ictech-multi-cart.account.renameSave'|trans,
+    renameNameRequiredLabel: 'ictech-multi-cart.account.renameNameRequired'|trans,
+    renameSuccessLabel: 'ictech-multi-cart.account.renameSuccess'|trans,
+    renameFailedLabel: 'ictech-multi-cart.account.renameFailed'|trans,
     promoNotAvailableLabel: 'ictech-multi-cart.selector.promoNotAvailable'|trans,
     createDisabledLimitLabel: 'ictech-multi-cart.selector.createDisabledLimit'|trans({'%limit%': ictechMultiCart.get('maxCartsPerUser')}),
     createDisabledUnavailableLabel: 'ictech-multi-cart.selector.createDisabledUnavailable'|trans,
@@ -54,6 +62,30 @@
 } %}
 
 {% block buy_widget_buy_form_inner %}
+    {% if ictechMultiCartActive %}
+        <style>
+            .ictech-multi-cart-selector__promo {
+                grid-template-columns: minmax(0, 1fr) !important;
+            }
+
+            .ictech-multi-cart-selector__promo-button,
+            .ictech-multi-cart-selector__ghost[data-multi-cart-promo-remove] {
+                width: 100%;
+            }
+
+            .ictech-multi-cart-selector__ghost[data-multi-cart-promo-remove] {
+                margin-top: 0.5rem;
+                background: #f8fbff;
+            }
+
+            @media (min-width: 768px) {
+                .ictech-multi-cart-selector__promo {
+                    gap: 0.65rem;
+                }
+            }
+        </style>
+    {% endif %}
+
     <form
         id="productDetailPageBuyProductForm"
         action="{{ path('frontend.checkout.line-item.add') }}"
@@ -67,6 +99,7 @@
         data-multi-cart-activate-url="{{ path('frontend.ictech.multi_cart.activate') }}"
         data-multi-cart-add-url="{{ path('frontend.ictech.multi_cart.add_product') }}"
         data-multi-cart-promotion-url="{{ path('frontend.ictech.multi_cart.promotion') }}"
+        data-multi-cart-rename-url-template="{{ path('frontend.ictech.multi_cart.account.rename', { cartId: '__cartId__' }) }}"
         data-multi-cart-checkout-url-template="{{ path('frontend.ictech.multi_cart.checkout.cart', { cartId: '__cartId__' }) }}"
         data-multi-cart-carts-url="{{ path('frontend.ictech.multi_cart.account.page') }}"
         data-multi-cart-labels="{{ ictechMultiCartLabels|json_encode|e('html_attr') }}">

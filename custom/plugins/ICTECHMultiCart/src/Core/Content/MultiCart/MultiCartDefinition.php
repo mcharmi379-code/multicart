@@ -69,6 +69,7 @@ final class MultiCartDefinition extends EntityDefinition
             new StringField('notes', 'notes', 500),
             new StringField('status', 'status'),
             new StringField('cart_token', 'cartToken'),
+            new BoolField('is_default', 'isDefault'),
             new BoolField('is_active', 'isActive'),
         ];
     }

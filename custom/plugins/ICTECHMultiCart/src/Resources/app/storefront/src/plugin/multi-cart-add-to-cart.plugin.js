@@ -130,7 +130,10 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
             ? `
                 <div class="ictech-multi-cart-selector__promo">
                     <input class="ictech-multi-cart-selector__input ictech-multi-cart-selector__input--compact" type="text" value="${this._escapeHtml(promotionValue)}" placeholder="${this._escapeHtml(this._labels.promoPlaceholder || 'Promo code (global discount)')}" data-multi-cart-promo-input>
-                    <button type="button" class="ictech-multi-cart-selector__promo-button" data-multi-cart-promo>${this._escapeHtml(this._labels.promoApplyLabel || 'Apply')}</button>
+                    <div class="ictech-multi-cart-selector__promo-actions">
+                        <button type="button" class="ictech-multi-cart-selector__promo-button" data-multi-cart-promo>${this._escapeHtml(this._labels.promoApplyLabel || 'Apply')}</button>
+                        <button type="button" class="ictech-multi-cart-selector__ghost ictech-multi-cart-selector__ghost--subtle" data-multi-cart-promo-remove>${this._escapeHtml(this._labels.promoRemoveLabel || 'Remove')}</button>
+                    </div>
                 </div>
                 <p class="ictech-multi-cart-selector__helper">${this._escapeHtml(this._labels.promoHelpLabel || 'Promotion code will be applied during the normal Shopware checkout flow.')}</p>
             `
@@ -174,6 +177,20 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
                 ${createDisabledMessage ? `<p class="ictech-multi-cart-selector__helper">${this._escapeHtml(createDisabledMessage)}</p>` : ''}
             </section>
         `;
+        const renameMarkup = selectedCart
+            ? `
+                <section class="ictech-multi-cart-selector__panel ictech-multi-cart-selector__panel--soft">
+                    <div class="ictech-multi-cart-selector__section-head">
+                        <h3>${this._escapeHtml(this._labels.renameCartLabel || 'Edit cart name')}</h3>
+                    </div>
+                    <label class="ictech-multi-cart-selector__label" for="ictech-multi-cart-rename">${this._escapeHtml(this._labels.renameLabel || 'Cart name')}</label>
+                    <div class="ictech-multi-cart-selector__create-row">
+                        <input id="ictech-multi-cart-rename" class="ictech-multi-cart-selector__input" type="text" maxlength="255" value="${this._escapeHtml(selectedCart.name || '')}" data-multi-cart-rename-input>
+                        <button type="button" class="ictech-multi-cart-selector__secondary" data-multi-cart-rename-save>${this._escapeHtml(this._labels.renameSaveLabel || 'Save name')}</button>
+                    </div>
+                </section>
+            `
+            : '';
 
         if (isDrawer) {
             return `
@@ -217,6 +234,7 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
                         <button type="button" class="ictech-multi-cart-selector__primary" data-multi-cart-add-selected>${this._escapeHtml(this._labels.addToSelectedCartLabel || 'Add to selected cart')}</button>
                         ${footerMarkup}
                     </section>
+                    ${renameMarkup}
                     ${createMarkup}
                     <div class="ictech-multi-cart-selector__feedback" data-multi-cart-feedback></div>
                 </div>
@@ -271,6 +289,7 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
                         ${footerMarkup}
                     </section>
                 </div>
+                ${renameMarkup}
                 ${createMarkup}
                 <div class="ictech-multi-cart-selector__feedback" data-multi-cart-feedback></div>
             </div>
@@ -329,7 +348,39 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
                     return;
                 }
 
+                if (promotionCode === '') {
+                    this._setFeedback(this._labels.promoRequiredLabel || 'Please enter a promotion code.');
+                    return;
+                }
+
                 await this._updatePromotionCode(this._selectedCartId, promotionCode);
+            });
+        }
+
+        const promoRemoveButton = container.querySelector('[data-multi-cart-promo-remove]');
+        if (promoRemoveButton) {
+            promoRemoveButton.addEventListener('click', async () => {
+                if (!this._selectedCartId) {
+                    this._setFeedback(this._labels.selectCartRequiredLabel || 'Please choose a cart first.');
+                    return;
+                }
+
+                await this._updatePromotionCode(this._selectedCartId, '');
+            });
+        }
+
+        const renameButton = container.querySelector('[data-multi-cart-rename-save]');
+        if (renameButton) {
+            renameButton.addEventListener('click', async () => {
+                const renameInput = container.querySelector('[data-multi-cart-rename-input]');
+                const nextName = renameInput ? renameInput.value.trim() : '';
+
+                if (!this._selectedCartId) {
+                    this._setFeedback(this._labels.selectCartRequiredLabel || 'Please choose a cart first.');
+                    return;
+                }
+
+                await this._renameSelectedCart(this._selectedCartId, nextName);
             });
         }
 
@@ -487,6 +538,43 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
             ),
             'success',
         );
+        this._rerenderSelector();
+        this._restoreFeedback();
+    }
+
+    async _renameSelectedCart(cartId, nextName) {
+        const renameUrlTemplate = this.el.dataset.multiCartRenameUrlTemplate;
+
+        if (!renameUrlTemplate) {
+            return;
+        }
+
+        if (!nextName) {
+            this._setFeedback(this._labels.renameNameRequiredLabel || 'Please enter a cart name.');
+            return;
+        }
+
+        const response = await fetch(renameUrlTemplate.replace('__cartId__', cartId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: new URLSearchParams({
+                name: nextName,
+            }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            this._setFeedback(data.message || this._labels.renameFailedLabel || 'The cart name could not be updated.');
+            return;
+        }
+
+        this._selectorState = data.state || this._selectorState;
+        this._selectedCartId = this._resolveSelectedCartId(this._selectorState, cartId);
+        this._setFeedback(data.message || this._labels.renameSuccessLabel || 'The cart name was updated successfully.', 'success');
         this._rerenderSelector();
         this._restoreFeedback();
     }
@@ -699,6 +787,7 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
             .ictech-multi-cart-selector__input:focus,.ictech-multi-cart-selector__select:focus{border-color:var(--ictech-brand);outline:0;box-shadow:0 0 0 3px rgba(10,86,198,.12)}
             .ictech-multi-cart-selector__input--compact{min-height:40px}
             .ictech-multi-cart-selector__promo,.ictech-multi-cart-selector__create-row{display:grid;gap:.75rem;grid-template-columns:minmax(0,1fr) auto;align-items:center}
+            .ictech-multi-cart-selector__promo-actions{display:grid;gap:.55rem;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center}
             .ictech-multi-cart-selector__primary,.ictech-multi-cart-selector__secondary,.ictech-multi-cart-selector__promo-button,.ictech-multi-cart-selector__ghost{min-height:42px;border-radius:999px;font-weight:800;transition:transform .2s ease,box-shadow .2s ease,opacity .2s ease}
             .ictech-multi-cart-selector__primary,.ictech-multi-cart-selector__secondary,.ictech-multi-cart-selector__promo-button{border:0}
             .ictech-multi-cart-selector__primary{width:100%;margin-top:1rem;padding:.9rem 1rem;background:linear-gradient(135deg,var(--ictech-brand) 0,var(--ictech-brand-dark) 100%);color:#fff;box-shadow:0 14px 26px rgba(10,86,198,.2)}
@@ -706,6 +795,7 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
             .ictech-multi-cart-selector__promo-button{padding:.75rem 1rem;background:#eef3fb;color:var(--ictech-brand-dark)}
             .ictech-multi-cart-selector__ghost{padding:.75rem 1rem;border:1px solid var(--ictech-border);background:#fff;color:var(--ictech-brand-dark)}
             .ictech-multi-cart-selector__ghost--accent{border-color:rgba(10,86,198,.18);background:#edf4ff}
+            .ictech-multi-cart-selector__ghost--subtle{background:#f8fbff}
             .ictech-multi-cart-selector__primary:hover,.ictech-multi-cart-selector__secondary:hover,.ictech-multi-cart-selector__promo-button:hover,.ictech-multi-cart-selector__ghost:hover{transform:translateY(-1px)}
             .ictech-multi-cart-selector__primary:disabled,.ictech-multi-cart-selector__secondary:disabled,.ictech-multi-cart-selector__promo-button:disabled{cursor:not-allowed;opacity:.55}
             .ictech-multi-cart-selector__pending{display:grid;gap:.15rem;padding:.95rem 1rem;border-radius:1rem;background:rgba(255,255,255,.8);border:1px solid rgba(10,86,198,.12)}
@@ -728,7 +818,7 @@ export default class MultiCartAddToCartPlugin extends AddToCartPlugin {
             .ictech-multi-cart-selector--drawer .ictech-multi-cart-selector__panel{padding:1rem;box-shadow:0 14px 34px rgba(14,33,68,.08)}
             .ictech-multi-cart-selector--drawer .ictech-multi-cart-selector__ghost{padding-inline:.5rem;font-size:.82rem}
             @media (max-width:991.98px){.ictech-multi-cart-selector--popup{min-width:min(100vw - 2rem,760px)}.ictech-multi-cart-selector__grid{grid-template-columns:1fr}}
-            @media (max-width:767.98px){.ictech-multi-cart-selector--popup{min-width:calc(100vw - 1rem)}.ictech-multi-cart-selector__hero,.ictech-multi-cart-selector__panel{padding:1rem}.ictech-multi-cart-selector__promo,.ictech-multi-cart-selector__create-row,.ictech-multi-cart-selector__footer-actions{grid-template-columns:1fr}.ictech-multi-cart-card{grid-template-columns:1fr}.ictech-multi-cart-card__price{grid-row:auto;grid-column:auto}.ictech-multi-cart-drawer{width:100vw;max-width:100vw;padding:.75rem}}
+            @media (max-width:767.98px){.ictech-multi-cart-selector--popup{min-width:calc(100vw - 1rem)}.ictech-multi-cart-selector__hero,.ictech-multi-cart-selector__panel{padding:1rem}.ictech-multi-cart-selector__promo,.ictech-multi-cart-selector__create-row,.ictech-multi-cart-selector__footer-actions,.ictech-multi-cart-selector__promo-actions{grid-template-columns:1fr}.ictech-multi-cart-card{grid-template-columns:1fr}.ictech-multi-cart-card__price{grid-row:auto;grid-column:auto}.ictech-multi-cart-drawer{width:100vw;max-width:100vw;padding:.75rem}}
         `;
     }
 

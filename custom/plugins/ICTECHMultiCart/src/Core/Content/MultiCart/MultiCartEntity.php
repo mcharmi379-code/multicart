@@ -17,6 +17,7 @@ final class MultiCartEntity extends Entity
     protected ?string $notes;
     protected string $status;
     protected ?string $cartToken;
+    protected bool $isDefault;
     protected bool $isActive;
     protected ?string $shippingAddressId;
     protected ?string $billingAddressId;
@@ -68,6 +69,11 @@ final class MultiCartEntity extends Entity
     public function getCartToken(): ?string
     {
         return $this->cartToken;
+    }
+
+    public function isDefault(): bool
+    {
+        return $this->isDefault;
     }
 
     public function isActive(): bool
