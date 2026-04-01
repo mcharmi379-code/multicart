@@ -1,14 +1,14 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace ICTECHMultiCart\Service;
 
 use Doctrine\DBAL\Connection;
-use Shopware\Core\Framework\Context;
-use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use ICTECHMultiCart\Core\Content\MultiCart\MultiCartCollection;
 use ICTECHMultiCart\Core\Content\MultiCartOrder\MultiCartOrderCollection;
+use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 
 final class MultiCartService
 {

@@ -1,23 +1,16 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace ICTECHMultiCart;
 
-use Shopware\Core\Framework\Plugin;
-use Shopware\Core\Framework\Plugin\Context\ActivateContext;
-use Shopware\Core\Framework\Plugin\Context\DeactivateContext;
-use Shopware\Core\Framework\Plugin\Context\InstallContext;
-use Shopware\Core\Framework\Plugin\Context\UninstallContext;
-use Shopware\Core\Framework\Plugin\Context\UpdateContext;
 use Doctrine\DBAL\Connection;
+use Shopware\Core\Framework\Plugin;
+use Shopware\Core\Framework\Plugin\Context\UninstallContext;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 final class ICTECHMultiCart extends Plugin
 {
-    public function install(InstallContext $installContext): void
-    {
-        parent::install($installContext);
-    }
-
     public function uninstall(UninstallContext $uninstallContext): void
     {
         parent::uninstall($uninstallContext);
@@ -27,31 +20,6 @@ final class ICTECHMultiCart extends Plugin
         }
 
         $this->removePluginData();
-    }
-
-    public function activate(ActivateContext $activateContext): void
-    {
-        parent::activate($activateContext);
-    }
-
-    public function deactivate(DeactivateContext $deactivateContext): void
-    {
-        parent::deactivate($deactivateContext);
-    }
-
-    public function update(UpdateContext $updateContext): void
-    {
-        parent::update($updateContext);
-    }
-
-    public function postInstall(InstallContext $installContext): void
-    {
-        parent::postInstall($installContext);
-    }
-
-    public function postUpdate(UpdateContext $updateContext): void
-    {
-        parent::postUpdate($updateContext);
     }
 
     /**

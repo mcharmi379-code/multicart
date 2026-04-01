@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace ICTECHMultiCart\Service;
 
@@ -6,9 +8,9 @@ use Shopware\Core\Checkout\Cart\LineItemFactoryRegistry;
 use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
 use Shopware\Core\Checkout\Promotion\Cart\PromotionItemBuilder;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
+use Shopware\Core\System\SalesChannel\Context\SalesChannelContextService;
 use Shopware\Core\System\SalesChannel\SalesChannel\ContextSwitchRoute;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
-use Shopware\Core\System\SalesChannel\Context\SalesChannelContextService;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 
@@ -24,6 +26,12 @@ final class MultiCartCheckoutService
         'billingAddressId',
         'paymentMethodId',
         'shippingMethodId',
+    ];
+
+    private const PRODUCT_LINE_ITEM_PAYLOAD = [
+        'type' => 'product',
+        'stackable' => true,
+        'removable' => true,
     ];
 
     public function __construct(
@@ -158,18 +166,7 @@ final class MultiCartCheckoutService
             return false;
         }
 
-        $contextPayload = [];
-
-        if ($state['checkoutPrefsEnabled']) {
-            foreach (self::CONTEXT_PREFERENCE_FIELDS as $cartField) {
-                $contextField = $this->getContextField($cartField);
-                $value = $preferenceOverride[$cartField] ?? ($selectedCarts[0][$cartField] ?? null);
-
-                if ($contextField !== null && is_string($value) && $value !== '') {
-                    $contextPayload[$contextField] = $value;
-                }
-            }
-        }
+        $contextPayload = $this->buildContextPayload($selectedCarts, $preferenceOverride, (bool) $state['checkoutPrefsEnabled']);
 
         if ($contextPayload !== []) {
             $this->contextSwitchRoute->switchContext(new RequestDataBag($contextPayload), $salesChannelContext);
@@ -177,55 +174,8 @@ final class MultiCartCheckoutService
 
         $this->cartService->deleteCart($salesChannelContext);
         $cart = $this->cartService->createNew($salesChannelContext->getToken());
-
-        foreach ($selectedCarts as $selectedCart) {
-            $items = $selectedCart['items'] ?? null;
-
-            if (!is_array($items)) {
-                continue;
-            }
-
-            foreach ($items as $item) {
-                if (!is_array($item)) {
-                    continue;
-                }
-
-                $productId = $item['productId'] ?? null;
-                $quantity = $item['quantity'] ?? null;
-
-                if (!is_string($productId) || $productId === '' || !is_int($quantity) || $quantity <= 0) {
-                    continue;
-                }
-
-                $lineItem = $this->lineItemFactoryRegistry->create([
-                    'id' => $productId,
-                    'referencedId' => $productId,
-                    'type' => 'product',
-                    'quantity' => $quantity,
-                    'stackable' => true,
-                    'removable' => true,
-                ], $salesChannelContext);
-
-                $cart = $this->cartService->add($cart, $lineItem, $salesChannelContext);
-            }
-        }
-
-        if ($state['promotionsEnabled']) {
-            $promotionCodes = [];
-
-            foreach ($selectedCarts as $selectedCart) {
-                $promotionCode = $selectedCart['promotionCode'] ?? null;
-
-                if (is_string($promotionCode) && $promotionCode !== '') {
-                    $promotionCodes[$promotionCode] = true;
-                }
-            }
-
-            foreach (array_keys($promotionCodes) as $promotionCode) {
-                $promotionItem = $this->promotionItemBuilder->buildPlaceholderItem($promotionCode);
-                $cart = $this->cartService->add($cart, $promotionItem, $salesChannelContext);
-            }
-        }
+        $cart = $this->addCartItems($cart, $selectedCarts, $salesChannelContext);
+        $cart = $this->addPromotionItems($cart, $selectedCarts, $salesChannelContext, (bool) $state['promotionsEnabled']);
 
         $this->cartService->recalculate($cart, $salesChannelContext);
         $this->storePreparedCheckout($selectedCarts, $salesChannelContext);
@@ -288,7 +238,6 @@ final class MultiCartCheckoutService
             return null;
         }
 
-        /** @var mixed $payload */
         $payload = $session->get(self::ORDER_TRACKING_SESSION_KEY);
         $session->remove(self::ORDER_TRACKING_SESSION_KEY);
 
@@ -296,40 +245,17 @@ final class MultiCartCheckoutService
             return null;
         }
 
-        $storedSalesChannelId = $payload['salesChannelId'] ?? null;
-        $storedCustomerId = $payload['customerId'] ?? null;
-
-        if (!is_string($storedSalesChannelId) || $storedSalesChannelId !== $salesChannelId) {
+        /** @var array<string, mixed> $payload */
+        if (!$this->matchesPreparedCheckoutIdentity($payload, $salesChannelId, $customerId)) {
             return null;
         }
-
-        if (!is_string($storedCustomerId) || $storedCustomerId !== $customerId) {
-            return null;
-        }
-
-        $storedCartIds = is_array($payload['cartIds'] ?? null) ? $payload['cartIds'] : [];
-        $storedCartNames = is_array($payload['cartNames'] ?? null) ? $payload['cartNames'] : [];
-        $storedPromotionCodes = is_array($payload['promotionCodes'] ?? null) ? $payload['promotionCodes'] : [];
-
-        $cartIds = array_values(array_filter(
-            $storedCartIds,
-            static fn (mixed $cartId): bool => is_string($cartId) && $cartId !== ''
-        ));
-        $cartNames = array_values(array_filter(
-            $storedCartNames,
-            static fn (mixed $cartName): bool => is_string($cartName) && $cartName !== ''
-        ));
-        $promotionCodes = array_values(array_filter(
-            $storedPromotionCodes,
-            static fn (mixed $promotionCode): bool => is_string($promotionCode) && $promotionCode !== ''
-        ));
 
         return [
             'salesChannelId' => $salesChannelId,
             'customerId' => $customerId,
-            'cartIds' => $cartIds,
-            'cartNames' => $cartNames,
-            'promotionCodes' => $promotionCodes,
+            'cartIds' => $this->filterStringList($payload['cartIds'] ?? null),
+            'cartNames' => $this->filterStringList($payload['cartNames'] ?? null),
+            'promotionCodes' => $this->filterStringList($payload['promotionCodes'] ?? null),
         ];
     }
 
@@ -374,14 +300,11 @@ final class MultiCartCheckoutService
         $normalizedItems = [];
 
         foreach ($items as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
+            $normalizedItem = $this->normalizePreparedItem($item);
 
-            $normalizedItems[] = [
-                'productId' => $item['productId'] ?? null,
-                'quantity' => $item['quantity'] ?? null,
-            ];
+            if ($normalizedItem !== null) {
+                $normalizedItems[] = $normalizedItem;
+            }
         }
 
         if ($normalizedItems === []) {
@@ -423,34 +346,12 @@ final class MultiCartCheckoutService
             return;
         }
 
-        $cartIds = [];
-        $cartNames = [];
-        $promotionCodes = [];
-
-        foreach ($selectedCarts as $selectedCart) {
-            $cartId = $selectedCart['id'] ?? null;
-            $cartName = $selectedCart['name'] ?? null;
-            $promotionCode = $selectedCart['promotionCode'] ?? null;
-
-            if (is_string($cartId) && $cartId !== '') {
-                $cartIds[] = $cartId;
-            }
-
-            if (is_string($cartName) && $cartName !== '') {
-                $cartNames[] = $cartName;
-            }
-
-            if (is_string($promotionCode) && $promotionCode !== '') {
-                $promotionCodes[] = $promotionCode;
-            }
-        }
-
         $session->set(self::ORDER_TRACKING_SESSION_KEY, [
             'salesChannelId' => $salesChannelContext->getSalesChannelId(),
             'customerId' => $customer->getId(),
-            'cartIds' => array_values(array_unique($cartIds)),
-            'cartNames' => array_values(array_unique($cartNames)),
-            'promotionCodes' => array_values(array_unique($promotionCodes)),
+            'cartIds' => $this->collectPreparedCheckoutField($selectedCarts, 'id'),
+            'cartNames' => $this->collectPreparedCheckoutField($selectedCarts, 'name'),
+            'promotionCodes' => $this->collectPreparedCheckoutField($selectedCarts, 'promotionCode'),
         ]);
     }
 
@@ -468,5 +369,202 @@ final class MultiCartCheckoutService
         }
 
         return $request->getSession();
+    }
+
+    /**
+     * @param list<array{
+     *     id?: mixed,
+     *     name?: mixed,
+     *     items: list<array{productId?: mixed, quantity?: mixed}>,
+     *     promotionCode?: mixed,
+     *     shippingAddressId?: mixed,
+     *     billingAddressId?: mixed,
+     *     paymentMethodId?: mixed,
+     *     shippingMethodId?: mixed
+     * }> $selectedCarts
+     * @param array{
+     *     shippingAddressId?: string|null,
+     *     billingAddressId?: string|null,
+     *     paymentMethodId?: string|null,
+     *     shippingMethodId?: string|null
+     * } $preferenceOverride
+     *
+     * @return array<string, string>
+     */
+    private function buildContextPayload(array $selectedCarts, array $preferenceOverride, bool $checkoutPrefsEnabled): array
+    {
+        if (!$checkoutPrefsEnabled) {
+            return [];
+        }
+
+        $contextPayload = [];
+
+        foreach (self::CONTEXT_PREFERENCE_FIELDS as $cartField) {
+            $contextField = $this->getContextField($cartField);
+            $value = $preferenceOverride[$cartField] ?? ($selectedCarts[0][$cartField] ?? null);
+
+            if ($contextField !== null && is_string($value) && $value !== '') {
+                $contextPayload[$contextField] = $value;
+            }
+        }
+
+        return $contextPayload;
+    }
+
+    /**
+     * @param list<array{
+     *     id?: mixed,
+     *     name?: mixed,
+     *     items: list<array{productId?: mixed, quantity?: mixed}>,
+     *     promotionCode?: mixed,
+     *     shippingAddressId?: mixed,
+     *     billingAddressId?: mixed,
+     *     paymentMethodId?: mixed,
+     *     shippingMethodId?: mixed
+     * }> $selectedCarts
+     */
+    private function addCartItems(
+        \Shopware\Core\Checkout\Cart\Cart $cart,
+        array $selectedCarts,
+        SalesChannelContext $salesChannelContext
+    ): \Shopware\Core\Checkout\Cart\Cart {
+        foreach ($selectedCarts as $selectedCart) {
+            $items = $selectedCart['items'] ?? null;
+
+            if (!is_array($items)) {
+                continue;
+            }
+
+            foreach ($items as $item) {
+                $lineItem = $this->buildProductLineItem($item, $salesChannelContext);
+
+                if ($lineItem !== null) {
+                    $cart = $this->cartService->add($cart, $lineItem, $salesChannelContext);
+                }
+            }
+        }
+
+        return $cart;
+    }
+
+    /**
+     * @param list<array{
+     *     id?: mixed,
+     *     name?: mixed,
+     *     items: list<array{productId?: mixed, quantity?: mixed}>,
+     *     promotionCode?: mixed,
+     *     shippingAddressId?: mixed,
+     *     billingAddressId?: mixed,
+     *     paymentMethodId?: mixed,
+     *     shippingMethodId?: mixed
+     * }> $selectedCarts
+     */
+    private function addPromotionItems(
+        \Shopware\Core\Checkout\Cart\Cart $cart,
+        array $selectedCarts,
+        SalesChannelContext $salesChannelContext,
+        bool $promotionsEnabled
+    ): \Shopware\Core\Checkout\Cart\Cart {
+        if (!$promotionsEnabled) {
+            return $cart;
+        }
+
+        foreach ($this->collectPreparedCheckoutField($selectedCarts, 'promotionCode') as $promotionCode) {
+            $promotionItem = $this->promotionItemBuilder->buildPlaceholderItem($promotionCode);
+            $cart = $this->cartService->add($cart, $promotionItem, $salesChannelContext);
+        }
+
+        return $cart;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function matchesPreparedCheckoutIdentity(array $payload, string $salesChannelId, string $customerId): bool
+    {
+        return ($payload['salesChannelId'] ?? null) === $salesChannelId
+            && ($payload['customerId'] ?? null) === $customerId;
+    }
+
+    /**
+     * @param mixed $values
+     *
+     * @return list<string>
+     */
+    private function filterStringList($values): array
+    {
+        if (!is_array($values)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $values,
+            static fn ($value): bool => is_string($value) && $value !== ''
+        ));
+    }
+
+    /**
+     * @param mixed $item
+     *
+     * @return array{productId?: mixed, quantity?: mixed}|null
+     */
+    private function normalizePreparedItem($item): ?array
+    {
+        if (!is_array($item)) {
+            return null;
+        }
+
+        return [
+            'productId' => $item['productId'] ?? null,
+            'quantity' => $item['quantity'] ?? null,
+        ];
+    }
+
+    /**
+     * @param mixed $item
+     */
+    private function buildProductLineItem(
+        $item,
+        SalesChannelContext $salesChannelContext
+    ): ?\Shopware\Core\Checkout\Cart\LineItem\LineItem {
+        if (!is_array($item)) {
+            return null;
+        }
+
+        $productId = $item['productId'] ?? null;
+        $quantity = $item['quantity'] ?? null;
+
+        if (!is_string($productId) || $productId === '' || !is_int($quantity) || $quantity <= 0) {
+            return null;
+        }
+
+        return $this->lineItemFactoryRegistry->create(
+            [
+                'id' => $productId,
+                'referencedId' => $productId,
+                'quantity' => $quantity,
+            ] + self::PRODUCT_LINE_ITEM_PAYLOAD,
+            $salesChannelContext
+        );
+    }
+
+    /**
+     * @param list<array<string, mixed>> $selectedCarts
+     *
+     * @return list<string>
+     */
+    private function collectPreparedCheckoutField(array $selectedCarts, string $field): array
+    {
+        $values = [];
+
+        foreach ($selectedCarts as $selectedCart) {
+            $value = $selectedCart[$field] ?? null;
+
+            if (is_string($value) && $value !== '') {
+                $values[] = $value;
+            }
+        }
+
+        return array_values(array_unique($values));
     }
 }

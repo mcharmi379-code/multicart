@@ -1,24 +1,26 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace ICTECHMultiCart\Controller\Admin;
 
 use Doctrine\DBAL\Connection;
+use ICTECHMultiCart\Core\Content\MultiCart\MultiCartCollection;
+use ICTECHMultiCart\Core\Content\MultiCartBlacklist\MultiCartBlacklistCollection;
+use ICTECHMultiCart\Core\Content\MultiCartConfig\MultiCartConfigCollection;
+use ICTECHMultiCart\Core\Content\MultiCartOrder\MultiCartOrderCollection;
+use ICTECHMultiCart\Service\AnalyticsService;
+use ICTECHMultiCart\Service\MultiCartConfigService;
+use ICTECHMultiCart\Service\MultiCartService;
 use Ramsey\Uuid\Uuid;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\System\SalesChannel\SalesChannelCollection;
+use Shopware\Core\System\SalesChannel\SalesChannelEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
-use ICTECHMultiCart\Service\MultiCartService;
-use ICTECHMultiCart\Service\AnalyticsService;
-use ICTECHMultiCart\Service\MultiCartConfigService;
-use ICTECHMultiCart\Core\Content\MultiCart\MultiCartCollection;
-use Shopware\Core\System\SalesChannel\SalesChannelCollection;
-use Shopware\Core\System\SalesChannel\SalesChannelEntity;
-use ICTECHMultiCart\Core\Content\MultiCartConfig\MultiCartConfigCollection;
-use ICTECHMultiCart\Core\Content\MultiCartBlacklist\MultiCartBlacklistCollection;
-use ICTECHMultiCart\Core\Content\MultiCartOrder\MultiCartOrderCollection;
 
 #[Route(defaults: ['_routeScope' => ['api']])]
 final class MultiCartManagerController
@@ -362,7 +364,7 @@ SQL;
             $reason = $data['reason'] ?? null;
             $createdBy = $data['createdBy'] ?? null;
             $now = (new \DateTime())->format('Y-m-d H:i:s.u');
-      
+
             $this->connection->executeStatement(
                 'INSERT INTO ictech_multi_cart_blacklist (id, customer_id, sales_channel_id, reason, created_by, created_at) 
                  VALUES (UNHEX(?), UNHEX(?), UNHEX(?), ?, ?, ?)',

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace ICTECHMultiCart\Controller\Storefront;
 
@@ -254,10 +256,10 @@ final class MultiCartAccountController extends StorefrontController
     #[Route(path: '/account/my-carts/combined-checkout', name: 'frontend.ictech.multi_cart.account.combined_checkout', defaults: ['_loginRequired' => true], methods: ['POST'])]
     public function combinedCheckout(Request $request, SalesChannelContext $salesChannelContext): RedirectResponse
     {
-        /** @var array<int, mixed> $cartIds */
         $cartIds = $request->request->all('cartIds');
+        $validCartIds = $this->extractCartIds($cartIds);
 
-        if ($cartIds === []) {
+        if ($validCartIds === []) {
             $this->addFlash(self::DANGER, $this->trans('ictech-multi-cart.account.combined.noSelection'));
 
             return $this->redirectToRoute('frontend.ictech.multi_cart.account.page');
@@ -277,16 +279,9 @@ final class MultiCartAccountController extends StorefrontController
             'shippingMethodId' => $this->getNullableStringRequestValue($request, 'shippingMethodId'),
         ];
 
-        $validCartIds = [];
+        $this->updateSelectedCartPreferences($validCartIds, $preferencePayload, $salesChannelContext);
 
-        foreach ($cartIds as $cartId) {
-            if (is_string($cartId) && $cartId !== '') {
-                $validCartIds[] = $cartId;
-                $this->contextService->updateCartPreferences($cartId, $preferencePayload, $salesChannelContext);
-            }
-        }
-
-        if ($validCartIds === [] || !$this->checkoutService->prepareCombinedCheckout($validCartIds, $salesChannelContext, $preferencePayload)) {
+        if (!$this->checkoutService->prepareCombinedCheckout($validCartIds, $salesChannelContext, $preferencePayload)) {
             $this->addFlash(self::DANGER, $this->trans('ictech-multi-cart.account.checkoutFailed'));
 
             return $this->redirectToRoute('frontend.ictech.multi_cart.account.page');
@@ -302,5 +297,41 @@ final class MultiCartAccountController extends StorefrontController
         $value = $request->request->get($key);
 
         return is_string($value) ? $value : null;
+    }
+
+    /**
+     * @param mixed $cartIds
+     *
+     * @return list<string>
+     */
+    private function extractCartIds($cartIds): array
+    {
+        if (!is_array($cartIds)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $cartIds,
+            static fn ($cartId): bool => is_string($cartId) && $cartId !== ''
+        ));
+    }
+
+    /**
+     * @param list<string> $cartIds
+     * @param array{
+     *     shippingAddressId?: string|null,
+     *     billingAddressId?: string|null,
+     *     paymentMethodId?: string|null,
+     *     shippingMethodId?: string|null
+     * } $preferencePayload
+     */
+    private function updateSelectedCartPreferences(
+        array $cartIds,
+        array $preferencePayload,
+        SalesChannelContext $salesChannelContext
+    ): void {
+        foreach ($cartIds as $cartId) {
+            $this->contextService->updateCartPreferences($cartId, $preferencePayload, $salesChannelContext);
+        }
     }
 }

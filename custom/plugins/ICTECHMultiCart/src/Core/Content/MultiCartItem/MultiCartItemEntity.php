@@ -1,11 +1,13 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace ICTECHMultiCart\Core\Content\MultiCartItem;
 
 use DateTimeInterface;
+use ICTECHMultiCart\Core\Content\MultiCart\MultiCartEntity;
 use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
-use ICTECHMultiCart\Core\Content\MultiCart\MultiCartEntity;
 
 final class MultiCartItemEntity extends Entity
 {

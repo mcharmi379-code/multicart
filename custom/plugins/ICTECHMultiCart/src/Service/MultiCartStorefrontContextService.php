@@ -1,12 +1,14 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace ICTECHMultiCart\Service;
 
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Ramsey\Uuid\Uuid;
-use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Checkout\Customer\Aggregate\CustomerAddress\CustomerAddressCollection;
+use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Struct\ArrayStruct;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
@@ -62,7 +64,7 @@ final class MultiCartStorefrontContextService
             $defaultCartId = $this->ensureDefaultCart($salesChannelContext, $customer, $state);
 
             if ($defaultCartId !== null) {
-                $this->setActiveCartId($defaultCartId, $salesChannelContext, $customer);
+                $this->activateCartSelection($defaultCartId, $salesChannelContext, $customer);
             }
         }
     }
@@ -164,7 +166,7 @@ final class MultiCartStorefrontContextService
 
         $this->connection->insert('ictech_multi_cart', $insert);
 
-        $this->setActiveCartId($cartId, $salesChannelContext, $customer);
+        $this->activateCartSelection($cartId, $salesChannelContext, $customer);
 
         return $cartId;
     }
@@ -181,7 +183,7 @@ final class MultiCartStorefrontContextService
             return false;
         }
 
-        $this->setActiveCartId($cartId, $salesChannelContext, $customerId);
+        $this->activateCartSelection($cartId, $salesChannelContext, $customerId);
 
         return true;
     }
@@ -415,16 +417,19 @@ final class MultiCartStorefrontContextService
 
         $addressId = (string) Uuid::uuid4()->getHex();
 
-        $this->customerAddressRepository->create([[
-            'id' => $addressId,
-            'customerId' => $customer->getId(),
-            'countryId' => $countryId,
-            'firstName' => $firstName,
-            'lastName' => $lastName,
-            'street' => $street,
-            'zipcode' => $zipcode,
-            'city' => $city,
-        ]], $salesChannelContext->getContext());
+        $this->customerAddressRepository->create(
+            [[
+                'id' => $addressId,
+                'customerId' => $customer->getId(),
+                'countryId' => $countryId,
+                'firstName' => $firstName,
+                'lastName' => $lastName,
+                'street' => $street,
+                'zipcode' => $zipcode,
+                'city' => $city,
+            ]],
+            $salesChannelContext->getContext()
+        );
 
         return [
             'success' => true,
@@ -722,7 +727,7 @@ final class MultiCartStorefrontContextService
             $nextCartId = $this->getFirstCartId($remainingCarts);
 
             if ($nextCartId !== null) {
-                $this->setActiveCartId($nextCartId, $salesChannelContext, $customerId);
+                $this->activateCartSelection($nextCartId, $salesChannelContext, $customerId);
             } else {
                 $this->clearActiveCartSelection($salesChannelContext->getSalesChannelId());
             }
@@ -777,62 +782,20 @@ final class MultiCartStorefrontContextService
         $customer = $salesChannelContext->getCustomer();
 
         if (!$customer instanceof CustomerEntity) {
-            return [
-                'enabled' => $config['pluginEnabled'],
-                'blacklisted' => false,
-                'customerLoggedIn' => false,
-                'customerAllowed' => false,
-                'canCreateCart' => false,
-                'createCartReason' => self::CREATE_CART_REASON_NOT_LOGGED_IN,
-                'salesChannelId' => $salesChannelId,
-                'customerId' => null,
-                'activeCartId' => null,
-                'activeCart' => null,
-                'carts' => [],
-                'cartCount' => 0,
-                'uiStyle' => $config['uiStyle'],
-                'maxCartsPerUser' => $config['maxCartsPerUser'],
-                'checkoutPrefsEnabled' => $config['checkoutPrefsEnabled'],
-                'promotionsEnabled' => $config['promotionsEnabled'],
-                'multiPaymentEnabled' => $config['multiPaymentEnabled'],
-                'conflictResolution' => $config['conflictResolution'],
-            ];
+            return $this->buildAnonymousState($salesChannelId, $config);
         }
 
         $customerAllowed = $this->isCustomerGroupAllowed($customer);
         $blacklisted = $this->isBlacklisted($customer->getId(), $salesChannelId);
 
         if (!$config['pluginEnabled'] || !$customerAllowed || $blacklisted) {
-            $createCartReason = self::CREATE_CART_REASON_PLUGIN_DISABLED;
-
-            if (!$customerAllowed) {
-                $createCartReason = self::CREATE_CART_REASON_CUSTOMER_NOT_ALLOWED;
-            }
-
-            if ($blacklisted) {
-                $createCartReason = self::CREATE_CART_REASON_BLACKLISTED;
-            }
-
-            return [
-                'enabled' => $config['pluginEnabled'],
-                'blacklisted' => $blacklisted,
-                'customerLoggedIn' => true,
-                'customerAllowed' => $customerAllowed,
-                'canCreateCart' => false,
-                'createCartReason' => $createCartReason,
-                'salesChannelId' => $salesChannelId,
-                'customerId' => $customer->getId(),
-                'activeCartId' => null,
-                'activeCart' => null,
-                'carts' => [],
-                'cartCount' => 0,
-                'uiStyle' => $config['uiStyle'],
-                'maxCartsPerUser' => $config['maxCartsPerUser'],
-                'checkoutPrefsEnabled' => $config['checkoutPrefsEnabled'],
-                'promotionsEnabled' => $config['promotionsEnabled'],
-                'multiPaymentEnabled' => $config['multiPaymentEnabled'],
-                'conflictResolution' => $config['conflictResolution'],
-            ];
+            return $this->buildUnavailableCustomerState(
+                $salesChannelId,
+                $customer->getId(),
+                $config,
+                $customerAllowed,
+                $blacklisted
+            );
         }
 
         $carts = $this->loadCustomerCarts($customer->getId(), $salesChannelId, $salesChannelContext->getLanguageId());
@@ -841,7 +804,7 @@ final class MultiCartStorefrontContextService
         $maxCartsPerUser = $config['maxCartsPerUser'];
         $canCreateCart = $maxCartsPerUser <= 0 || count($carts) < $maxCartsPerUser;
 
-        return [
+        return $this->buildStatePayload($salesChannelId, $config) + [
             'enabled' => true,
             'blacklisted' => false,
             'customerLoggedIn' => true,
@@ -854,13 +817,161 @@ final class MultiCartStorefrontContextService
             'activeCart' => $activeCart,
             'carts' => $carts,
             'cartCount' => count($carts),
+        ];
+    }
+
+    /**
+     * @param array{
+     *     pluginEnabled: bool,
+     *     maxCartsPerUser: int,
+     *     checkoutPrefsEnabled: bool,
+     *     promotionsEnabled: bool,
+     *     multiPaymentEnabled: bool,
+     *     conflictResolution: string,
+     *     uiStyle: string
+     * } $config
+     *
+     * @return array{
+     *     salesChannelId: string,
+     *     uiStyle: string,
+     *     maxCartsPerUser: int,
+     *     checkoutPrefsEnabled: bool,
+     *     promotionsEnabled: bool,
+     *     multiPaymentEnabled: bool,
+     *     conflictResolution: string
+     * }
+     */
+    private function buildStatePayload(string $salesChannelId, array $config): array
+    {
+        return [
+            'salesChannelId' => $salesChannelId,
             'uiStyle' => $config['uiStyle'],
-            'maxCartsPerUser' => $maxCartsPerUser,
+            'maxCartsPerUser' => $config['maxCartsPerUser'],
             'checkoutPrefsEnabled' => $config['checkoutPrefsEnabled'],
             'promotionsEnabled' => $config['promotionsEnabled'],
             'multiPaymentEnabled' => $config['multiPaymentEnabled'],
             'conflictResolution' => $config['conflictResolution'],
         ];
+    }
+
+    /**
+     * @param array{
+     *     pluginEnabled: bool,
+     *     maxCartsPerUser: int,
+     *     checkoutPrefsEnabled: bool,
+     *     promotionsEnabled: bool,
+     *     multiPaymentEnabled: bool,
+     *     conflictResolution: string,
+     *     uiStyle: string
+     * } $config
+     *
+     * @return array{
+     *     enabled: bool,
+     *     blacklisted: bool,
+     *     customerLoggedIn: bool,
+     *     customerAllowed: bool,
+     *     canCreateCart: bool,
+     *     createCartReason: string|null,
+     *     salesChannelId: string,
+     *     customerId: string|null,
+     *     activeCartId: string|null,
+     *     activeCart: array<string, mixed>|null,
+     *     carts: list<array<string, mixed>>,
+     *     cartCount: int,
+     *     uiStyle: string,
+     *     maxCartsPerUser: int,
+     *     checkoutPrefsEnabled: bool,
+     *     promotionsEnabled: bool,
+     *     multiPaymentEnabled: bool,
+     *     conflictResolution: string
+     * }
+     */
+    private function buildAnonymousState(string $salesChannelId, array $config): array
+    {
+        return $this->buildStatePayload($salesChannelId, $config) + [
+            'enabled' => $config['pluginEnabled'],
+            'blacklisted' => false,
+            'customerLoggedIn' => false,
+            'customerAllowed' => false,
+            'canCreateCart' => false,
+            'createCartReason' => self::CREATE_CART_REASON_NOT_LOGGED_IN,
+            'customerId' => null,
+            'activeCartId' => null,
+            'activeCart' => null,
+            'carts' => [],
+            'cartCount' => 0,
+        ];
+    }
+
+    /**
+     * @param array{
+     *     pluginEnabled: bool,
+     *     maxCartsPerUser: int,
+     *     checkoutPrefsEnabled: bool,
+     *     promotionsEnabled: bool,
+     *     multiPaymentEnabled: bool,
+     *     conflictResolution: string,
+     *     uiStyle: string
+     * } $config
+     *
+     * @return array{
+     *     enabled: bool,
+     *     blacklisted: bool,
+     *     customerLoggedIn: bool,
+     *     customerAllowed: bool,
+     *     canCreateCart: bool,
+     *     createCartReason: string|null,
+     *     salesChannelId: string,
+     *     customerId: string|null,
+     *     activeCartId: string|null,
+     *     activeCart: array<string, mixed>|null,
+     *     carts: list<array<string, mixed>>,
+     *     cartCount: int,
+     *     uiStyle: string,
+     *     maxCartsPerUser: int,
+     *     checkoutPrefsEnabled: bool,
+     *     promotionsEnabled: bool,
+     *     multiPaymentEnabled: bool,
+     *     conflictResolution: string
+     * }
+     */
+    private function buildUnavailableCustomerState(
+        string $salesChannelId,
+        string $customerId,
+        array $config,
+        bool $customerAllowed,
+        bool $blacklisted
+    ): array {
+        return $this->buildStatePayload($salesChannelId, $config) + [
+            'enabled' => $config['pluginEnabled'],
+            'blacklisted' => $blacklisted,
+            'customerLoggedIn' => true,
+            'customerAllowed' => $customerAllowed,
+            'canCreateCart' => false,
+            'createCartReason' => $this->resolveCreateCartReason($config['pluginEnabled'], $customerAllowed, $blacklisted),
+            'customerId' => $customerId,
+            'activeCartId' => null,
+            'activeCart' => null,
+            'carts' => [],
+            'cartCount' => 0,
+        ];
+    }
+
+    private function resolveCreateCartReason(bool $pluginEnabled, bool $customerAllowed, bool $blacklisted): string
+    {
+        if ($blacklisted) {
+            return self::CREATE_CART_REASON_BLACKLISTED;
+        }
+
+        if (!$customerAllowed) {
+            return self::CREATE_CART_REASON_CUSTOMER_NOT_ALLOWED;
+        }
+
+        if (!$pluginEnabled) {
+            return self::CREATE_CART_REASON_PLUGIN_DISABLED;
+        }
+
+        return self::CREATE_CART_REASON_LIMIT_REACHED;
     }
 
     public function getCreateCartFailureReason(SalesChannelContext $salesChannelContext): ?string
@@ -1175,13 +1286,13 @@ final class MultiCartStorefrontContextService
         $firstCartId = $this->getFirstCartId($carts);
 
         if ($firstCartId !== null) {
-            $this->setActiveCartId($firstCartId, $salesChannelId, $customerId);
+            $this->activateCartSelection($firstCartId, $salesChannelId, $customerId);
         }
 
         return $firstCartId;
     }
 
-    private function setActiveCartId(
+    private function activateCartSelection(
         string $cartId,
         SalesChannelContext|string $salesChannelContext,
         CustomerEntity|string $customer

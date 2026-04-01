@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace ICTECHMultiCart\Controller\Storefront;
 
@@ -6,11 +8,11 @@ use ICTECHMultiCart\Service\MultiCartCheckoutService;
 use ICTECHMultiCart\Service\MultiCartStorefrontContextService;
 use ICTECHMultiCart\Service\MultiCartStorefrontItemService;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
+use Shopware\Storefront\Controller\StorefrontController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
-use Shopware\Storefront\Controller\StorefrontController;
 
 #[Route(defaults: ['_routeScope' => ['storefront']])]
 final class MultiCartController extends StorefrontController
