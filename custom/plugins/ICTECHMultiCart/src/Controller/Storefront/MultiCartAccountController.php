@@ -104,7 +104,12 @@ final class MultiCartAccountController extends StorefrontController
         $duplicatedCartId = $this->contextService->duplicateCart($cartId, $salesChannelContext);
 
         if ($duplicatedCartId === null) {
-            $this->addFlash(self::DANGER, $this->trans('ictech-multi-cart.account.duplicateFailed'));
+            $failure = $this->contextService->getCreateCartFailureMessage($salesChannelContext);
+            $messageKey = $failure['messageKey'] === 'ictech-multi-cart.account.createFailed'
+                ? 'ictech-multi-cart.account.duplicateFailed'
+                : $failure['messageKey'];
+
+            $this->addFlash(self::DANGER, $this->trans($messageKey));
 
             return $this->redirectToRoute('frontend.ictech.multi_cart.account.page');
         }

@@ -76,8 +76,9 @@
       "remove": "Remove",
       "cartMonitoring": "Cart Monitoring",
       "viewUserCarts": "View User Carts",
-            "createdAt": "Created At",
-      "actions": "Actions"
+      "createdAt": "Created At",
+      "actions": "Actions",
+      "empty": "No blacklisted users found for the selected sales channel."
     },
     "monitoring": {
       "title": "Cart Monitoring",
@@ -94,7 +95,9 @@
       "updatedAt": "Last Updated",
       "viewDetails": "View details",
       "detailsTitle": "Cart Details",
-      "noItems": "No items in this cart"
+      "noItems": "No items in this cart",
+      "empty": "No carts found for the selected customer.",
+      "selectCustomerHint": "Select a customer to load carts."
     },
     "notification": {
       "success": "Success",

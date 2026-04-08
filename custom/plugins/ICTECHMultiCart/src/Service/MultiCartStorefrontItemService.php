@@ -76,6 +76,33 @@ final class MultiCartStorefrontItemService
         return $this->refreshCartTotals($cartId, $cartName, $salesChannelContext);
     }
 
+    /**
+     * @return array{cartId: string, cartName: string, itemCount: int, total: float}
+     */
+    public function removeProductFromCart(
+        string $cartId,
+        string $itemId,
+        string $customerId,
+        SalesChannelContext $salesChannelContext
+    ): array {
+        $cartName = $this->getCartName($cartId, $customerId, $salesChannelContext->getSalesChannelId());
+
+        if ($cartName === null) {
+            throw new \InvalidArgumentException('The selected cart could not be found.');
+        }
+
+        $deletedRows = $this->connection->delete('ictech_multi_cart_item', [
+            'id' => $this->toBinary($itemId),
+            'multi_cart_id' => $this->toBinary($cartId),
+        ]);
+
+        if ($deletedRows < 1) {
+            throw new \InvalidArgumentException('The selected cart item could not be found.');
+        }
+
+        return $this->refreshCartTotals($cartId, $cartName, $salesChannelContext);
+    }
+
     private function getCartName(string $cartId, string $customerId, string $salesChannelId): ?string
     {
         /** @var mixed $value */

@@ -77,7 +77,8 @@
       "cartMonitoring": "Warenkorbüberwachung",
       "viewUserCarts": "Benutzerwagen anzeigen",
             "createdAt": "Erstellt am",
-      "actions": "Aktionen"
+      "actions": "Aktionen",
+      "empty": "Keine gesperrten Benutzer für den ausgewählten Verkaufskanal gefunden."
     },
     "monitoring": {
       "title": "Warenkorb-Monitoring",
@@ -94,7 +95,9 @@
       "updatedAt": "Zuletzt aktualisiert",
       "viewDetails": "Details anzeigen",
       "detailsTitle": "Warenkorbdetails",
-      "noItems": "Keine Artikel in diesem Warenkorb"
+      "noItems": "Keine Artikel in diesem Warenkorb",
+      "empty": "Keine Warenkörbe für den ausgewählten Kunden gefunden.",
+      "selectCustomerHint": "Wählen Sie einen Kunden aus, um Warenkörbe zu laden."
     },
     "notification": {
       "success": "Erfolg",

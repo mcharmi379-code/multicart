@@ -43,6 +43,9 @@
       "cartNameRequired": "Bitte geben Sie einen Warenkorbnamen ein.",
       "createError": "Der Warenkorb konnte nicht erstellt werden.",
       "addError": "Das Produkt konnte nicht zum Warenkorb hinzugefügt werden.",
+      "removeItem": "Produkt entfernen",
+      "removeItemSuccess": "Das Produkt wurde aus dem ausgewählten Warenkorb entfernt.",
+      "removeItemError": "Das Produkt konnte nicht aus dem ausgewählten Warenkorb entfernt werden.",
       "addedSuccess": "Zu %cart% hinzugefügt",
       "productFallback": "Produkt",
       "cartFallback": "Warenkorb"

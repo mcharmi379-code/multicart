@@ -18,6 +18,9 @@ Component.register('multi-cart-manager-monitoring', {
             selectedCustomerId: null,
             monitoredCarts: [],
             selectedCartDetails: null,
+            page: 1,
+            limit: 25,
+            total: 0,
         };
     },
 
@@ -46,16 +49,20 @@ Component.register('multi-cart-manager-monitoring', {
         selectedSalesChannel() {
             this.monitoredCarts = [];
             this.selectedCartDetails = null;
+            this.page = 1;
+            this.total = 0;
         },
 
         selectedCustomerId(newValue) {
             if (!newValue || !this.selectedSalesChannel) {
                 this.monitoredCarts = [];
                 this.selectedCartDetails = null;
+                this.total = 0;
 
                 return;
             }
 
+            this.page = 1;
             this.loadCarts();
         },
     },
@@ -86,6 +93,8 @@ Component.register('multi-cart-manager-monitoring', {
             const query = new URLSearchParams({
                 salesChannelId: this.selectedSalesChannel,
                 customerId: this.selectedCustomerId,
+                page: String(this.page),
+                limit: String(this.limit),
                 _ts: String(Date.now()),
             });
 
@@ -93,6 +102,7 @@ Component.register('multi-cart-manager-monitoring', {
                 headers: Shopware.Context.api.apiResourceHeaders,
             }).then((response) => {
                 this.monitoredCarts = Array.isArray(response.data?.data) ? response.data.data : [];
+                this.total = Number.isInteger(response.data?.total) ? response.data.total : 0;
                 this.isLoading = false;
             }).catch(() => {
                 this.createNotificationError({
@@ -131,6 +141,11 @@ Component.register('multi-cart-manager-monitoring', {
 
         showCartDetails(item) {
             this.selectedCartDetails = item;
+        },
+
+        onPageChange(page) {
+            this.page = page;
+            this.loadCarts();
         },
     },
 });

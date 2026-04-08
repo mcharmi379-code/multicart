@@ -1,4 +1,31 @@
 <style>
+    .js-pseudo-modal .modal-dialog {
+        max-width: min(940px, calc(100vw - 1.5rem));
+        margin: 1rem auto;
+    }
+
+    .js-pseudo-modal .modal-content {
+        border: 0;
+        border-radius: 1.5rem;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 28px 70px rgba(14, 33, 68, 0.18);
+    }
+
+    .js-pseudo-modal .modal-header {
+        padding: 1rem 1rem 0;
+        border-bottom: 0;
+    }
+
+    .js-pseudo-modal .modal-body {
+        padding: 0 1rem 1rem;
+    }
+
+    .ictech-multi-cart-selector--popup {
+        width: min(940px, calc(100vw - 3rem));
+        max-width: 100%;
+    }
+
     .ictech-multi-cart-selector__promo {
         grid-template-columns: minmax(0, 1fr) !important;
     }
@@ -16,6 +43,31 @@
     @media (min-width: 768px) {
         .ictech-multi-cart-selector__promo {
             gap: 0.65rem;
+        }
+    }
+
+    @media (max-width: 991.98px) {
+        .js-pseudo-modal .modal-dialog {
+            max-width: calc(100vw - 1rem);
+            margin: 0.5rem auto;
+        }
+
+        .ictech-multi-cart-selector--popup {
+            width: min(100vw - 2rem, 760px);
+        }
+    }
+
+    @media (max-width: 767.98px) {
+        .js-pseudo-modal .modal-header {
+            padding: 0.75rem 0.75rem 0;
+        }
+
+        .js-pseudo-modal .modal-body {
+            padding: 0 0.75rem 0.75rem;
+        }
+
+        .ictech-multi-cart-selector--popup {
+            width: 100%;
         }
     }
 </style>

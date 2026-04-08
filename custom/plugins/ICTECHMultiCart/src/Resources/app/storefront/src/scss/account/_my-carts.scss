@@ -494,3 +494,55 @@
         grid-template-columns: 1fr;
     }
 }
+
+.ictech-account-carts__modal-dialog--items {
+    width: min(600px, 100%);
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.ictech-account-carts__modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--ictech-border);
+}
+
+.ictech-account-carts__modal-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 800;
+}
+
+.ictech-account-carts__modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--ictech-muted);
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ictech-account-carts__modal-close:hover {
+    color: var(--ictech-ink);
+}
+
+.ictech-account-carts__modal-body {
+    max-height: calc(80vh - 100px);
+    overflow-y: auto;
+}
+
+.ictech-account-carts__cart-items-list {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}

@@ -108,6 +108,8 @@
             <argument type="service" id="ICTECHMultiCart\Service\AnalyticsService" />
             <argument type="service" id="ICTECHMultiCart\Service\MultiCartConfigService" />
             <argument type="service" id="Doctrine\DBAL\Connection" />
+            <argument type="service" id="Shopware\Core\System\SalesChannel\Context\SalesChannelContextFactory" />
+            <argument type="service" id="ICTECHMultiCart\Service\MultiCartPriceCalculatorService" />
             <tag name="controller.service_arguments" />
         </service>
     </services>

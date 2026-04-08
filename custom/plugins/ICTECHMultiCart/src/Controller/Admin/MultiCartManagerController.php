@@ -11,11 +11,13 @@ use ICTECHMultiCart\Core\Content\MultiCartConfig\MultiCartConfigCollection;
 use ICTECHMultiCart\Core\Content\MultiCartOrder\MultiCartOrderCollection;
 use ICTECHMultiCart\Service\AnalyticsService;
 use ICTECHMultiCart\Service\MultiCartConfigService;
+use ICTECHMultiCart\Service\MultiCartPriceCalculatorService;
 use ICTECHMultiCart\Service\MultiCartService;
 use Ramsey\Uuid\Uuid;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\System\SalesChannel\Context\AbstractSalesChannelContextFactory;
 use Shopware\Core\System\SalesChannel\SalesChannelCollection;
 use Shopware\Core\System\SalesChannel\SalesChannelEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -39,7 +41,9 @@ final class MultiCartManagerController
         private MultiCartService $multiCartService,
         private AnalyticsService $analyticsService,
         private MultiCartConfigService $configService,
-        private Connection $connection
+        private Connection $connection,
+        private AbstractSalesChannelContextFactory $salesChannelContextFactory,
+        private MultiCartPriceCalculatorService $priceCalculator
     ) {
     }
 
@@ -47,6 +51,12 @@ final class MultiCartManagerController
     public function getDashboard(Request $request, Context $context): JsonResponse
     {
         $salesChannelId = $this->normalizeSalesChannelId($request->query->get('salesChannelId'));
+        $usagePage = max(1, (int) $request->query->get('usagePage', 1));
+        $usageLimit = min(100, max(1, (int) $request->query->get('usageLimit', 10)));
+        $activePage = max(1, (int) $request->query->get('activePage', 1));
+        $activeLimit = min(100, max(1, (int) $request->query->get('activeLimit', 10)));
+        $completedPage = max(1, (int) $request->query->get('completedPage', 1));
+        $completedLimit = min(100, max(1, (int) $request->query->get('completedLimit', 10)));
 
         if ($salesChannelId === false) {
             return new JsonResponse(['error' => 'Invalid sales channel ID'], 400);
@@ -54,7 +64,6 @@ final class MultiCartManagerController
 
         if ($salesChannelId === null) {
             return new JsonResponse([
-                'activeCarts' => [],
                 'analytics' => [
                     'totalCartsCreated' => 0,
                     'cartsConvertedToOrders' => 0,
@@ -62,15 +71,31 @@ final class MultiCartManagerController
                     'averageItemsPerCart' => 0.0,
                     'averageCartValue' => 0.0,
                     'totalCartValue' => 0.0,
-                    'usageDistribution' => [],
+                    'usageDistribution' => [
+                        'data' => [],
+                        'total' => 0,
+                        'page' => $usagePage,
+                        'limit' => $usageLimit,
+                    ],
                 ],
-                'completedOrders' => [],
+                'activeCarts' => [
+                    'data' => [],
+                    'total' => 0,
+                    'page' => $activePage,
+                    'limit' => $activeLimit,
+                ],
+                'completedOrders' => [
+                    'data' => [],
+                    'total' => 0,
+                    'page' => $completedPage,
+                    'limit' => $completedLimit,
+                ],
             ]);
         }
 
-        $activeCarts = $this->multiCartService->getActiveCarts($salesChannelId, $context);
-        $analytics = $this->analyticsService->getAnalytics($salesChannelId, $context);
-        $completedOrders = $this->multiCartService->getCompletedOrders($salesChannelId, $context);
+        $activeCarts = $this->multiCartService->getActiveCarts($salesChannelId, $context, $activePage, $activeLimit);
+        $analytics = $this->analyticsService->getAnalytics($salesChannelId, $context, $usagePage, $usageLimit);
+        $completedOrders = $this->multiCartService->getCompletedOrders($salesChannelId, $context, $completedPage, $completedLimit);
 
         return new JsonResponse([
             'activeCarts' => $activeCarts,
@@ -294,8 +319,8 @@ final class MultiCartManagerController
     public function getBlacklist(Request $request, Context $context): JsonResponse
     {
         $salesChannelId = $request->query->get('salesChannelId');
-        $page = (int)$request->query->get('page', 1);
-        $limit = (int)$request->query->get('limit', 50);
+        $page = max(1, (int) $request->query->get('page', 1));
+        $limit = min(100, max(1, (int) $request->query->get('limit', 50)));
         $offset = ($page - 1) * $limit;
 
         $query = <<<'SQL'
@@ -393,13 +418,70 @@ SQL;
     {
         $salesChannelId = $request->query->get('salesChannelId');
         $customerId = $request->query->get('customerId');
+        $page = max(1, (int) $request->query->get('page', 1));
+        $limit = min(100, max(1, (int) $request->query->get('limit', 25)));
+        $offset = ($page - 1) * $limit;
 
         if (!is_string($salesChannelId) || !is_string($customerId) || $salesChannelId === '' || $customerId === '') {
             return new JsonResponse([
                 'data' => [],
                 'total' => 0,
+                'page' => $page,
+                'limit' => $limit,
             ]);
         }
+
+        $monitoringContext = $this->salesChannelContextFactory->create(
+            (string) Uuid::uuid4()->getHex(),
+            $salesChannelId
+        );
+
+        /** @var mixed $total */
+        $total = $this->connection->fetchOne(
+            <<<'SQL'
+SELECT COUNT(*)
+FROM ictech_multi_cart cart
+WHERE cart.sales_channel_id = UNHEX(:salesChannelId)
+  AND cart.customer_id = UNHEX(:customerId)
+SQL,
+            [
+                'salesChannelId' => $salesChannelId,
+                'customerId' => $customerId,
+            ]
+        );
+
+        /** @var list<array<string, mixed>> $cartIdRows */
+        $cartIdRows = $this->connection->fetchAllAssociative(
+            <<<'SQL'
+SELECT LOWER(HEX(cart.id)) AS id
+FROM ictech_multi_cart cart
+WHERE cart.sales_channel_id = UNHEX(:salesChannelId)
+  AND cart.customer_id = UNHEX(:customerId)
+ORDER BY COALESCE(cart.updated_at, cart.created_at) DESC
+LIMIT :limit OFFSET :offset
+SQL,
+            [
+                'salesChannelId' => $salesChannelId,
+                'customerId' => $customerId,
+                'limit' => $limit,
+                'offset' => $offset,
+            ],
+            [
+                'limit' => \PDO::PARAM_INT,
+                'offset' => \PDO::PARAM_INT,
+            ]
+        );
+
+        $this->priceCalculator->recalculateCarts(
+            array_values(array_filter(
+                array_map(
+                    fn (array $cart): string => $this->getNullableStringFromRow($cart, 'id') ?? '',
+                    $cartIdRows
+                ),
+                static fn (string $cartId): bool => $cartId !== ''
+            )),
+            $monitoringContext
+        );
 
         /** @var list<array<string, mixed>> $rows */
         $rows = $this->connection->fetchAllAssociative(
@@ -421,10 +503,17 @@ WHERE cart.sales_channel_id = UNHEX(:salesChannelId)
   AND cart.customer_id = UNHEX(:customerId)
 GROUP BY cart.id, cart.name, cart.status, cart.promotion_code, cart.promotion_discount, cart.subtotal, cart.total, cart.created_at, updatedAt
 ORDER BY updatedAt DESC
+LIMIT :limit OFFSET :offset
 SQL,
             [
                 'salesChannelId' => $salesChannelId,
                 'customerId' => $customerId,
+                'limit' => $limit,
+                'offset' => $offset,
+            ],
+            [
+                'limit' => \PDO::PARAM_INT,
+                'offset' => \PDO::PARAM_INT,
             ]
         );
 
@@ -435,6 +524,7 @@ SQL,
             $items = $this->connection->fetchAllAssociative(
                 <<<'SQL'
 SELECT
+    LOWER(HEX(item.id)) AS id,
     item.product_name AS productName,
     item.product_number AS productNumber,
     item.quantity AS quantity,
@@ -459,6 +549,7 @@ SQL,
                 'updatedAt' => $this->getNullableStringFromRow($row, 'updatedAt'),
                 'itemCount' => $this->getIntFromRow($row, 'itemCount'),
                 'items' => array_map(fn (array $item): array => [
+                    'id' => $this->getNullableStringFromRow($item, 'id') ?? '',
                     'productName' => $this->getNullableStringFromRow($item, 'productName') ?? '',
                     'productNumber' => $this->getNullableStringFromRow($item, 'productNumber') ?? '',
                     'quantity' => $this->getIntFromRow($item, 'quantity'),
@@ -470,7 +561,9 @@ SQL,
 
         return new JsonResponse([
             'data' => $carts,
-            'total' => count($carts),
+            'total' => $this->normalizeScalarInt($total),
+            'page' => $page,
+            'limit' => $limit,
         ]);
     }
 

@@ -135,6 +135,11 @@ Component.register('multi-cart-manager-blacklist', {
             });
         },
 
+        onPageChange(page) {
+            this.page = page;
+            this.loadBlacklist();
+        },
+
 
 
         getCustomerDisplay(item) {

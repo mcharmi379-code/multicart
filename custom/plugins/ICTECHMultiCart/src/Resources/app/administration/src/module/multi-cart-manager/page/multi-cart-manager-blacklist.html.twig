@@ -59,10 +59,10 @@
         </sw-card>
 
         <!-- Blacklist Table -->
-        <sw-card :title="$tc('multi-cart-manager.blacklist.list')" class="blacklist-table">
-            <sw-data-grid
-                :data-source="blacklistedUsers"
-                :columns="blacklistColumns"
+            <sw-card :title="$tc('multi-cart-manager.blacklist.list')" class="blacklist-table">
+                <sw-data-grid
+                    :data-source="blacklistedUsers"
+                    :columns="blacklistColumns"
                 :show-selection="false"
                 :show-actions="true"
                 :is-loading="isLoading"
@@ -86,6 +86,18 @@
                     </sw-context-menu-item>
                 </template>
             </sw-data-grid>
+            <sw-empty-state
+                v-if="!isLoading && blacklistedUsers.length === 0"
+                :title="$tc('multi-cart-manager.blacklist.empty')"
+            />
+            <sw-pagination
+                v-if="total > limit"
+                :page="page"
+                :limit="limit"
+                :total="total"
+                :total-visible="7"
+                @page-change="onPageChange"
+            />
         </sw-card>
         </sw-card-view>
     </template>

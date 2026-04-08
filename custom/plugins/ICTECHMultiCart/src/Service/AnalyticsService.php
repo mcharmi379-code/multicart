@@ -15,9 +15,22 @@ final class AnalyticsService
     }
 
     /**
-     * @return array<string, float|int|array<int, array<string, int|string|float>>>
+     * @return array{
+     *     totalCartsCreated: int,
+     *     cartsConvertedToOrders: int,
+     *     conversionRate: float,
+     *     averageItemsPerCart: float,
+     *     averageCartValue: float,
+     *     totalCartValue: float,
+     *     usageDistribution: array{
+     *         data: list<array<string, int|string|float>>,
+     *         total: int,
+     *         page: int,
+     *         limit: int
+     *     }
+     * }
      */
-    public function getAnalytics(?string $salesChannelId, Context $context): array
+    public function getAnalytics(?string $salesChannelId, Context $context, int $usagePage = 1, int $usageLimit = 10): array
     {
         unset($context);
 
@@ -33,7 +46,7 @@ final class AnalyticsService
             'averageItemsPerCart' => round($cartStats['averageItemsPerCart'], 2),
             'averageCartValue' => round($cartStats['averageCartValue'], 2),
             'totalCartValue' => round($cartStats['totalCartValue'], 2),
-            'usageDistribution' => $this->getUsageDistribution($salesChannelId),
+            'usageDistribution' => $this->getUsageDistribution($salesChannelId, $usagePage, $usageLimit),
         ];
     }
 
@@ -113,10 +126,27 @@ SQL;
     }
 
     /**
-     * @return list<array<string, int|string|float>>
+     * @return array{
+     *     data: list<array<string, int|string|float>>,
+     *     total: int,
+     *     page: int,
+     *     limit: int
+     * }
      */
-    private function getUsageDistribution(?string $salesChannelId): array
+    private function getUsageDistribution(?string $salesChannelId, int $page, int $limit): array
     {
+        $normalizedPage = max(1, $page);
+        $normalizedLimit = min(100, max(1, $limit));
+        $offset = ($normalizedPage - 1) * $normalizedLimit;
+
+        $countQuery = <<<'SQL'
+SELECT COUNT(*) FROM (
+    SELECT customer.id
+    FROM ictech_multi_cart cart
+    LEFT JOIN customer customer ON customer.id = cart.customer_id
+    WHERE 1 = 1
+SQL;
+
         $query = <<<'SQL'
 SELECT
     LOWER(HEX(customer.id)) AS customerId,
@@ -129,29 +159,51 @@ LEFT JOIN customer customer ON customer.id = cart.customer_id
 WHERE 1 = 1
 SQL;
         $params = [];
+        $types = [];
 
         if ($salesChannelId !== null) {
+            $countQuery .= ' AND cart.sales_channel_id = UNHEX(:salesChannelId)';
             $query .= ' AND cart.sales_channel_id = UNHEX(:salesChannelId)';
             $params['salesChannelId'] = $salesChannelId;
         }
 
+        $countQuery .= '
+    GROUP BY
+        customer.id,
+        COALESCE(NULLIF(TRIM(CONCAT(COALESCE(customer.first_name, \'\'), \' \', COALESCE(customer.last_name, \'\'))), \'\'), customer.email, \'Unknown\'),
+        customer.email
+) usage_distribution';
+
+        /** @var mixed $total */
+        $total = $this->connection->fetchOne($countQuery, $params);
+
         $query .= '
 GROUP BY customer.id, customerName, customerEmail
 ORDER BY cartCount DESC, totalValue DESC
-LIMIT 10';
+LIMIT :limit OFFSET :offset';
+
+        $params['limit'] = $normalizedLimit;
+        $params['offset'] = $offset;
+        $types['limit'] = \PDO::PARAM_INT;
+        $types['offset'] = \PDO::PARAM_INT;
 
         /** @var list<array<string, mixed>> $rows */
-        $rows = $this->connection->fetchAllAssociative($query, $params);
+        $rows = $this->connection->fetchAllAssociative($query, $params, $types);
 
-        return array_map(function (array $row): array {
-            return [
-                'customerId' => $this->toString($row['customerId'] ?? null),
-                'customerName' => $this->toString($row['customerName'] ?? null, 'Unknown'),
-                'customerEmail' => $this->toString($row['customerEmail'] ?? null),
-                'cartCount' => $this->toInt($row['cartCount'] ?? null),
-                'totalValue' => round($this->toFloat($row['totalValue'] ?? null), 2),
-            ];
-        }, $rows);
+        return [
+            'data' => array_map(function (array $row): array {
+                return [
+                    'customerId' => $this->toString($row['customerId'] ?? null),
+                    'customerName' => $this->toString($row['customerName'] ?? null, 'Unknown'),
+                    'customerEmail' => $this->toString($row['customerEmail'] ?? null),
+                    'cartCount' => $this->toInt($row['cartCount'] ?? null),
+                    'totalValue' => round($this->toFloat($row['totalValue'] ?? null), 2),
+                ];
+            }, $rows),
+            'total' => $this->toInt($total),
+            'page' => $normalizedPage,
+            'limit' => $normalizedLimit,
+        ];
     }
 
     private function toInt(mixed $value): int

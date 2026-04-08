@@ -43,6 +43,9 @@
       "cartNameRequired": "Please enter a cart name.",
       "createError": "The cart could not be created.",
       "addError": "The product could not be added to the cart.",
+      "removeItem": "Remove product",
+      "removeItemSuccess": "The product was removed from the selected cart.",
+      "removeItemError": "The product could not be removed from the selected cart.",
       "addedSuccess": "Added to %cart%",
       "productFallback": "Product",
       "cartFallback": "cart"

@@ -13,7 +13,7 @@
 }
 
 .ictech-multi-cart-modal .modal-dialog.ictech-multi-cart-modal__dialog {
-    max-width: min(1080px, calc(100vw - 1.5rem));
+    max-width: min(940px, calc(100vw - 1.5rem));
     margin: 1rem auto;
 }
 
@@ -37,7 +37,8 @@
 @import 'account/my-carts';
 
 .ictech-multi-cart-selector--popup {
-    min-width: min(940px, calc(100vw - 3rem));
+    width: min(940px, calc(100vw - 3rem));
+    max-width: 100%;
 }
 
 .ictech-multi-cart-selector__hero {
@@ -374,7 +375,7 @@
     }
 
     .ictech-multi-cart-selector--popup {
-        min-width: min(100vw - 2rem, 760px);
+        width: min(100vw - 2rem, 760px);
     }
 
     .ictech-multi-cart-selector__grid {
@@ -392,7 +393,7 @@
     }
 
     .ictech-multi-cart-selector--popup {
-        min-width: 100%;
+        width: 100%;
     }
 
     .ictech-multi-cart-selector__hero,

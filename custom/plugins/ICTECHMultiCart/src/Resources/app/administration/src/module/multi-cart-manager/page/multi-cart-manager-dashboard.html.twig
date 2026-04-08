@@ -76,6 +76,14 @@
                     </sw-context-menu-item>
                 </template>
             </sw-data-grid>
+            <sw-pagination
+                v-if="usageTotal > usageLimit"
+                :page="usagePage"
+                :limit="usageLimit"
+                :total="usageTotal"
+                :total-visible="7"
+                @page-change="onUsagePageChange"
+            />
         </sw-card>
 
         <!-- Active Carts -->
@@ -112,6 +120,14 @@
                     </sw-context-menu-item>
                 </template>
             </sw-data-grid>
+            <sw-pagination
+                v-if="activeTotal > activeLimit"
+                :page="activePage"
+                :limit="activeLimit"
+                :total="activeTotal"
+                :total-visible="7"
+                @page-change="onActivePageChange"
+            />
         </sw-card>
 
         <!-- Completed Orders -->
@@ -151,6 +167,14 @@
                     </sw-context-menu-item>
                 </template>
             </sw-data-grid>
+            <sw-pagination
+                v-if="completedTotal > completedLimit"
+                :page="completedPage"
+                :limit="completedLimit"
+                :total="completedTotal"
+                :total-visible="7"
+                @page-change="onCompletedPageChange"
+            />
         </sw-card>
         </sw-card-view>
     </template>

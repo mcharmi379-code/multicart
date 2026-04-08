@@ -103,7 +103,24 @@ final class MultiCartStorefrontContextService
     {
         $this->bootstrapCustomerCarts($salesChannelContext);
 
-        return $this->buildState($salesChannelContext);
+        $state = $this->buildState($salesChannelContext);
+
+        if ($state['enabled'] && $state['customerLoggedIn'] && $state['customerAllowed'] && !$state['blacklisted']) {
+            $cartIds = array_values(array_filter(
+                array_map(
+                    static fn (array $cart): string => is_string($cart['id'] ?? null) ? $cart['id'] : '',
+                    $state['carts']
+                ),
+                static fn (string $cartId): bool => $cartId !== ''
+            ));
+
+            if ($cartIds !== []) {
+                $this->priceCalculator->recalculateCarts($cartIds, $salesChannelContext);
+                $state = $this->buildState($salesChannelContext);
+            }
+        }
+
+        return $state;
     }
 
     public function getManagedCustomerId(SalesChannelContext $salesChannelContext): ?string
@@ -598,6 +615,10 @@ final class MultiCartStorefrontContextService
         $customerId = $this->getManagedCustomerId($salesChannelContext);
 
         if ($customerId === null || !$this->cartExistsForCustomer($cartId, $customerId, $salesChannelContext->getSalesChannelId())) {
+            return null;
+        }
+
+        if ($this->getCreateCartFailureReason($salesChannelContext) !== null) {
             return null;
         }
 
@@ -1228,7 +1249,8 @@ final class MultiCartStorefrontContextService
 
         /** @var list<array<string, mixed>> $rows */
         $rows = $this->connection->fetchAllAssociative(
-            'SELECT LOWER(HEX(multi_cart_id)) AS cartId,
+            'SELECT LOWER(HEX(id)) AS id,
+                    LOWER(HEX(multi_cart_id)) AS cartId,
                     LOWER(HEX(product_id)) AS productId,
                     product_number AS productNumber,
                     product_name AS productName,
@@ -1252,6 +1274,7 @@ final class MultiCartStorefrontContextService
             }
 
             $itemsByCartId[$cartId][] = [
+                'id' => $this->toNullableString($row['id'] ?? null),
                 'productId' => $this->toNullableString($row['productId'] ?? null),
                 'productNumber' => $this->toNullableString($row['productNumber'] ?? null),
                 'productName' => $this->toNullableString($row['productName'] ?? null) ?? 'Product',

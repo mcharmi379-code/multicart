@@ -12,6 +12,7 @@ export default class MultiCartAccountPlugin extends Plugin {
         const createModal = root.querySelector('[data-ictech-create-modal]');
         const addressModal = root.querySelector('[data-ictech-address-modal]');
         const combinedModal = root.querySelector('[data-ictech-combined-modal]');
+        const viewItemsModal = root.querySelector('[data-ictech-view-items-modal]');
         const combinedBar = root.querySelector('[data-ictech-combined-bar]');
         const countNode = root.querySelector('[data-ictech-combined-count]');
         const totalNode = root.querySelector('[data-ictech-combined-total]');
@@ -259,6 +260,23 @@ export default class MultiCartAccountPlugin extends Plugin {
                 closeModal(createModal);
                 closeModal(addressModal);
                 closeModal(combinedModal);
+                closeModal(viewItemsModal);
+            });
+        });
+
+        root.querySelectorAll('[data-ictech-view-cart]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const card = button.closest('.ictech-account-carts__card');
+                if (!card || !viewItemsModal) return;
+
+                const cartTitle = card.querySelector('[data-ictech-cart-title]')?.textContent || 'Cart';
+                const itemsList = card.querySelector('[data-ictech-cart-items-list]');
+
+                viewItemsModal.querySelector('[data-ictech-modal-title]').textContent = cartTitle;
+                const itemsContainer = viewItemsModal.querySelector('[data-ictech-items-list]');
+                itemsContainer.innerHTML = itemsList ? itemsList.innerHTML : '<p>No items</p>';
+
+                openModal(viewItemsModal);
             });
         });
 

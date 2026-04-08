@@ -20,6 +20,15 @@ Component.register('multi-cart-manager-dashboard', {
             usageDistribution: [],
             selectedSalesChannel: null,
             salesChannels: [],
+            usagePage: 1,
+            usageLimit: 10,
+            usageTotal: 0,
+            activePage: 1,
+            activeLimit: 10,
+            activeTotal: 0,
+            completedPage: 1,
+            completedLimit: 10,
+            completedTotal: 0,
         };
     },
 
@@ -65,6 +74,17 @@ Component.register('multi-cart-manager-dashboard', {
         this.loadSalesChannels();
     },
 
+    watch: {
+        selectedSalesChannel(newValue, oldValue) {
+            if (!newValue || newValue === oldValue) {
+                return;
+            }
+
+            this.resetPagination();
+            this.loadDashboard();
+        },
+    },
+
     methods: {
         loadSalesChannels() {
             this.isLoading = true;
@@ -77,7 +97,6 @@ Component.register('multi-cart-manager-dashboard', {
                 this.salesChannels = response.data;
                 if (this.salesChannels.length > 0) {
                     this.selectedSalesChannel = this.salesChannels[0].id;
-                    this.loadDashboard();
                 }
                 this.isLoading = false;
             }).catch(() => {
@@ -106,13 +125,22 @@ Component.register('multi-cart-manager-dashboard', {
                     headers: Shopware.Context.api.apiResourceHeaders,
                     params: {
                         salesChannelId: this.selectedSalesChannel,
+                        usagePage: this.usagePage,
+                        usageLimit: this.usageLimit,
+                        activePage: this.activePage,
+                        activeLimit: this.activeLimit,
+                        completedPage: this.completedPage,
+                        completedLimit: this.completedLimit,
                     },
                 }
             ).then((response) => {
-                this.activeCarts = response.data.activeCarts;
+                this.activeCarts = response.data.activeCarts?.data || [];
+                this.activeTotal = Number.isInteger(response.data.activeCarts?.total) ? response.data.activeCarts.total : 0;
                 this.analytics = response.data.analytics;
-                this.completedOrders = response.data.completedOrders;
-                this.usageDistribution = response.data.analytics?.usageDistribution || [];
+                this.completedOrders = response.data.completedOrders?.data || [];
+                this.completedTotal = Number.isInteger(response.data.completedOrders?.total) ? response.data.completedOrders.total : 0;
+                this.usageDistribution = response.data.analytics?.usageDistribution?.data || [];
+                this.usageTotal = Number.isInteger(response.data.analytics?.usageDistribution?.total) ? response.data.analytics.usageDistribution.total : 0;
                 this.isLoading = false;
             }).catch(() => {
                 this.createNotificationError({
@@ -124,6 +152,28 @@ Component.register('multi-cart-manager-dashboard', {
         },
 
         onSalesChannelChange() {
+            this.resetPagination();
+            this.loadDashboard();
+        },
+
+        resetPagination() {
+            this.usagePage = 1;
+            this.activePage = 1;
+            this.completedPage = 1;
+        },
+
+        onUsagePageChange(page) {
+            this.usagePage = page;
+            this.loadDashboard();
+        },
+
+        onActivePageChange(page) {
+            this.activePage = page;
+            this.loadDashboard();
+        },
+
+        onCompletedPageChange(page) {
+            this.completedPage = page;
             this.loadDashboard();
         },
 

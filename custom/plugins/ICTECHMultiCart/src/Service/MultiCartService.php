@@ -22,10 +22,29 @@ final class MultiCartService
     }
 
     /**
-     * @return array<int, array<string, string|int|float|\DateTimeInterface|null>>
+     * @return array{
+     *     data: list<array<string, string|int|float|\DateTimeInterface|null>>,
+     *     total: int,
+     *     page: int,
+     *     limit: int
+     * }
      */
-    public function getActiveCarts(?string $salesChannelId, Context $context): array
+    public function getActiveCarts(?string $salesChannelId, Context $context, int $page = 1, int $limit = 10): array
     {
+        unset($context);
+
+        $normalizedPage = max(1, $page);
+        $normalizedLimit = min(100, max(1, $limit));
+        $offset = ($normalizedPage - 1) * $normalizedLimit;
+
+        $countQuery = <<<'SQL'
+SELECT COUNT(*)
+FROM ictech_multi_cart cart
+LEFT JOIN ictech_multi_cart_order order_map ON order_map.multi_cart_id = cart.id
+WHERE cart.status = 'active'
+  AND order_map.id IS NULL
+SQL;
+
         $query = <<<'SQL'
 SELECT
     LOWER(HEX(cart.id)) AS id,
@@ -45,39 +64,72 @@ WHERE cart.status = 'active'
 SQL;
 
         $params = [];
+        $types = [];
 
         if ($salesChannelId !== null) {
+            $countQuery .= ' AND cart.sales_channel_id = UNHEX(:salesChannelId)';
             $query .= ' AND cart.sales_channel_id = UNHEX(:salesChannelId)';
             $params['salesChannelId'] = $salesChannelId;
         }
 
+        /** @var mixed $total */
+        $total = $this->connection->fetchOne($countQuery, $params);
+
         $query .= '
 GROUP BY cart.id, cart.name, owner, ownerEmail, cart.total, lastActivity, createdAt
 ORDER BY lastActivity DESC
-LIMIT 100';
+LIMIT :limit OFFSET :offset';
+
+        $params['limit'] = $normalizedLimit;
+        $params['offset'] = $offset;
+        $types['limit'] = \PDO::PARAM_INT;
+        $types['offset'] = \PDO::PARAM_INT;
 
         /** @var list<array<string, mixed>> $rows */
-        $rows = $this->connection->fetchAllAssociative($query, $params);
+        $rows = $this->connection->fetchAllAssociative($query, $params, $types);
 
-        return array_map(function (array $row): array {
-            return [
-                'id' => $this->toNullableString($row['id'] ?? null) ?? '',
-                'name' => $this->toNullableString($row['name'] ?? null) ?? 'Cart',
-                'owner' => $this->toNullableString($row['owner'] ?? null) ?? 'Unknown',
-                'ownerEmail' => $this->toNullableString($row['ownerEmail'] ?? null) ?? '',
-                'itemCount' => $this->toInt($row['itemCount'] ?? null),
-                'total' => $this->toFloat($row['total'] ?? null),
-                'lastActivity' => $this->toNullableString($row['lastActivity'] ?? null),
-                'createdAt' => $this->toNullableString($row['createdAt'] ?? null),
-            ];
-        }, $rows);
+        return [
+            'data' => array_map(function (array $row): array {
+                return [
+                    'id' => $this->toNullableString($row['id'] ?? null) ?? '',
+                    'name' => $this->toNullableString($row['name'] ?? null) ?? 'Cart',
+                    'owner' => $this->toNullableString($row['owner'] ?? null) ?? 'Unknown',
+                    'ownerEmail' => $this->toNullableString($row['ownerEmail'] ?? null) ?? '',
+                    'itemCount' => $this->toInt($row['itemCount'] ?? null),
+                    'total' => $this->toFloat($row['total'] ?? null),
+                    'lastActivity' => $this->toNullableString($row['lastActivity'] ?? null),
+                    'createdAt' => $this->toNullableString($row['createdAt'] ?? null),
+                ];
+            }, $rows),
+            'total' => $this->toInt($total),
+            'page' => $normalizedPage,
+            'limit' => $normalizedLimit,
+        ];
     }
 
     /**
-     * @return array<int, array<string, string|int|float|\DateTimeInterface|null>>
+     * @return array{
+     *     data: list<array<string, string|int|float|\DateTimeInterface|null>>,
+     *     total: int,
+     *     page: int,
+     *     limit: int
+     * }
      */
-    public function getCompletedOrders(?string $salesChannelId, Context $context): array
+    public function getCompletedOrders(?string $salesChannelId, Context $context, int $page = 1, int $limit = 10): array
     {
+        unset($context);
+
+        $normalizedPage = max(1, $page);
+        $normalizedLimit = min(100, max(1, $limit));
+        $offset = ($normalizedPage - 1) * $normalizedLimit;
+
+        $countQuery = <<<'SQL'
+SELECT COUNT(order_map.id) AS totalOrders
+FROM ictech_multi_cart_order order_map
+LEFT JOIN `order` orders ON orders.id = order_map.order_id
+WHERE 1 = 1
+SQL;
+
         $query = <<<'SQL'
 SELECT
     LOWER(HEX(order_map.id)) AS id,
@@ -104,32 +156,47 @@ WHERE 1 = 1
 SQL;
 
         $params = [];
+        $types = [];
 
         if ($salesChannelId !== null) {
+            $countQuery .= ' AND orders.sales_channel_id = UNHEX(:salesChannelId)';
             $query .= ' AND orders.sales_channel_id = UNHEX(:salesChannelId)';
             $params['salesChannelId'] = $salesChannelId;
         }
 
+        /** @var mixed $total */
+        $total = $this->connection->fetchOne($countQuery, $params);
+
         $query .= '
 GROUP BY order_map.id, cartName, orderId, promotionCode, discount, orderedAt, orderStatus
 ORDER BY orderedAt DESC
-LIMIT 100';
+LIMIT :limit OFFSET :offset';
+
+        $params['limit'] = $normalizedLimit;
+        $params['offset'] = $offset;
+        $types['limit'] = \PDO::PARAM_INT;
+        $types['offset'] = \PDO::PARAM_INT;
 
         /** @var list<array<string, mixed>> $rows */
-        $rows = $this->connection->fetchAllAssociative($query, $params);
+        $rows = $this->connection->fetchAllAssociative($query, $params, $types);
 
-        return array_map(function (array $row): array {
-            return [
-                'id' => $this->toNullableString($row['id'] ?? null) ?? '',
-                'cartName' => $this->toNullableString($row['cartName'] ?? null) ?? 'Cart',
-                'orderId' => $this->toNullableString($row['orderId'] ?? null) ?? '',
-                'promotionCode' => $this->toNullableString($row['promotionCode'] ?? null),
-                'discount' => $this->toFloat($row['discount'] ?? null),
-                'orderedAt' => $this->toNullableString($row['orderedAt'] ?? null),
-                'status' => $this->toNullableString($row['orderStatus'] ?? null) ?? 'Unknown',
-                'items' => $this->toNullableString($row['items'] ?? null) ?? '',
-            ];
-        }, $rows);
+        return [
+            'data' => array_map(function (array $row): array {
+                return [
+                    'id' => $this->toNullableString($row['id'] ?? null) ?? '',
+                    'cartName' => $this->toNullableString($row['cartName'] ?? null) ?? 'Cart',
+                    'orderId' => $this->toNullableString($row['orderId'] ?? null) ?? '',
+                    'promotionCode' => $this->toNullableString($row['promotionCode'] ?? null),
+                    'discount' => $this->toFloat($row['discount'] ?? null),
+                    'orderedAt' => $this->toNullableString($row['orderedAt'] ?? null),
+                    'status' => $this->toNullableString($row['orderStatus'] ?? null) ?? 'Unknown',
+                    'items' => $this->toNullableString($row['items'] ?? null) ?? '',
+                ];
+            }, $rows),
+            'total' => $this->toInt($total),
+            'page' => $normalizedPage,
+            'limit' => $normalizedLimit,
+        ];
     }
 
     public function createCart(string $customerId, string $salesChannelId, string $name, ?string $notes, Context $context): string

@@ -1,0 +1,11 @@
+{% if page.state.promotionsEnabled %}
+    <div class="ictech-account-carts__field">
+        <label>{{ 'ictech-multi-cart.account.promoCode'|trans }}</label>
+        <div class="ictech-account-carts__promo-row">
+            <input class="ictech-account-carts__input" type="text" value="{{ cart.promotionCode ?? '' }}" placeholder="{{ 'ictech-multi-cart.account.promoPlaceholder'|trans }}" data-ictech-promotion-input data-cart-id="{{ cart.id }}">
+            <button type="button" class="ictech-account-carts__btn ictech-account-carts__btn--ghost" data-ictech-promotion-apply data-cart-id="{{ cart.id }}">{{ 'ictech-multi-cart.account.promoApply'|trans }}</button>
+            <button type="button" class="ictech-account-carts__btn ictech-account-carts__btn--ghost" data-ictech-promotion-remove data-cart-id="{{ cart.id }}">{{ 'ictech-multi-cart.account.promoRemove'|trans }}</button>
+        </div>
+        <p class="ictech-account-carts__promo-feedback" hidden data-ictech-promotion-feedback></p>
+    </div>
+{% endif %}

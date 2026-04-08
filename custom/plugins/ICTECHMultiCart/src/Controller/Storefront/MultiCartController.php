@@ -192,6 +192,56 @@ final class MultiCartController extends StorefrontController
         ]);
     }
 
+    #[Route(path: '/multi-cart/remove-product', name: 'frontend.ictech.multi_cart.remove_product', methods: ['POST'], defaults: ['XmlHttpRequest' => true, 'csrf_protected' => false])]
+    public function removeProduct(Request $request, SalesChannelContext $salesChannelContext): JsonResponse
+    {
+        $customerId = $this->contextService->getManagedCustomerId($salesChannelContext);
+        $cartId = trim((string) $request->request->get('cartId', ''));
+        $itemId = trim((string) $request->request->get('itemId', ''));
+
+        if ($customerId === null) {
+            return new JsonResponse([
+                'success' => false,
+                'message' => 'Multi-cart is not available for the current customer.',
+            ], JsonResponse::HTTP_FORBIDDEN);
+        }
+
+        if ($cartId === '' || $itemId === '') {
+            return new JsonResponse([
+                'success' => false,
+                'message' => 'Cart and item information are required.',
+            ], JsonResponse::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $cartSummary = $this->itemService->removeProductFromCart(
+                $cartId,
+                $itemId,
+                $customerId,
+                $salesChannelContext
+            );
+        } catch (\InvalidArgumentException $exception) {
+            return new JsonResponse([
+                'success' => false,
+                'message' => $exception->getMessage(),
+                'state' => $this->contextService->getState($salesChannelContext),
+            ], JsonResponse::HTTP_BAD_REQUEST);
+        } catch (\Throwable) {
+            return new JsonResponse([
+                'success' => false,
+                'message' => 'The product could not be removed from the selected cart.',
+                'state' => $this->contextService->getState($salesChannelContext),
+            ], JsonResponse::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        return new JsonResponse([
+            'success' => true,
+            'message' => 'The product was removed from the selected cart.',
+            'cart' => $cartSummary,
+            'state' => $this->contextService->getState($salesChannelContext),
+        ]);
+    }
+
     #[Route(path: '/multi-cart/checkout', name: 'frontend.ictech.multi_cart.checkout.active', defaults: ['_loginRequired' => true], methods: ['GET'])]
     public function checkoutActiveCart(SalesChannelContext $salesChannelContext): RedirectResponse
     {

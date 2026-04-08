@@ -5,21 +5,30 @@ declare(strict_types=1);
 namespace ICTECHMultiCart;
 
 use Doctrine\DBAL\Connection;
+use Shopware\Core\Framework\Adapter\Cache\CacheClearer;
 use Shopware\Core\Framework\Plugin;
+use Shopware\Core\Framework\Plugin\Context\DeactivateContext;
 use Shopware\Core\Framework\Plugin\Context\UninstallContext;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 final class ICTECHMultiCart extends Plugin
 {
+    public function deactivate(DeactivateContext $deactivateContext): void
+    {
+        parent::deactivate($deactivateContext);
+
+        $this->clearPluginCaches();
+    }
+
     public function uninstall(UninstallContext $uninstallContext): void
     {
         parent::uninstall($uninstallContext);
 
-        if ($uninstallContext->keepUserData()) {
-            return;
+        if (!$uninstallContext->keepUserData()) {
+            $this->removePluginData();
         }
 
-        $this->removePluginData();
+        $this->clearPluginCaches();
     }
 
     /**
@@ -36,19 +45,35 @@ final class ICTECHMultiCart extends Plugin
 
     private function getConnection(): Connection
     {
-        $container = $this->container;
-
-        if (!$container instanceof ContainerInterface) {
-            throw new \RuntimeException('Plugin container is not available.');
-        }
-
-        $connection = $container->get(Connection::class);
+        $connection = $this->getContainer()->get(Connection::class);
 
         if (!$connection instanceof Connection) {
             throw new \RuntimeException('Doctrine DBAL connection service is not available.');
         }
 
         return $connection;
+    }
+
+    private function clearPluginCaches(): void
+    {
+        $cacheClearer = $this->getContainer()->get(CacheClearer::class);
+
+        if (!$cacheClearer instanceof CacheClearer) {
+            throw new \RuntimeException('Shopware cache clearer service is not available.');
+        }
+
+        $cacheClearer->clear();
+    }
+
+    private function getContainer(): ContainerInterface
+    {
+        $container = $this->container;
+
+        if (!$container instanceof ContainerInterface) {
+            throw new \RuntimeException('Plugin container is not available.');
+        }
+
+        return $container;
     }
 
     /**

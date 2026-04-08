@@ -66,6 +66,22 @@
                         </sw-context-menu-item>
                     </template>
                 </sw-data-grid>
+                <sw-empty-state
+                    v-if="!isLoading && !selectedCustomerId"
+                    :title="$tc('multi-cart-manager.monitoring.selectCustomerHint')"
+                />
+                <sw-empty-state
+                    v-else-if="!isLoading && monitoredCarts.length === 0"
+                    :title="$tc('multi-cart-manager.monitoring.empty')"
+                />
+                <sw-pagination
+                    v-if="total > limit"
+                    :page="page"
+                    :limit="limit"
+                    :total="total"
+                    :total-visible="7"
+                    @page-change="onPageChange"
+                />
             </sw-card>
 
             <sw-modal
