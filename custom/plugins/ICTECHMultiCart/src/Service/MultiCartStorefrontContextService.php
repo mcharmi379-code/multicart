@@ -11,6 +11,7 @@ use Shopware\Core\Checkout\Customer\Aggregate\CustomerAddress\CustomerAddressCol
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Struct\ArrayStruct;
+use Shopware\Core\Framework\Uuid\Uuid as ShopwareUuid;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
@@ -1202,8 +1203,8 @@ final class MultiCartStorefrontContextService
                 'itemCount' => $this->toInt($row['itemCount'] ?? null),
                 'shippingAddressId' => $this->toNullableString($row['shippingAddressId'] ?? null),
                 'billingAddressId' => $this->toNullableString($row['billingAddressId'] ?? null),
-                'paymentMethodId' => $this->toNullableString($row['paymentMethodId'] ?? null),
-                'shippingMethodId' => $this->toNullableString($row['shippingMethodId'] ?? null),
+                'paymentMethodId' => $this->toValidUuidOrNull($row['paymentMethodId'] ?? null),
+                'shippingMethodId' => $this->toValidUuidOrNull($row['shippingMethodId'] ?? null),
                 'shippingAddressLabel' => $this->formatAddressLabel(
                     $this->toNullableString($row['shippingRecipient'] ?? null),
                     $this->toNullableString($row['shippingStreet'] ?? null)
@@ -1524,6 +1525,21 @@ final class MultiCartStorefrontContextService
         }
 
         return $binaryValue;
+    }
+
+    private function toValidUuidOrNull(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $normalizedValue = trim($value);
+
+        if ($normalizedValue === '' || !ShopwareUuid::isValid($normalizedValue)) {
+            return null;
+        }
+
+        return $normalizedValue;
     }
 
     private function toNullableString(mixed $value): ?string
