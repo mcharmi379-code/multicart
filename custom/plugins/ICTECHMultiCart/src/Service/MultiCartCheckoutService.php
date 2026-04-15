@@ -8,6 +8,7 @@ use Shopware\Core\Checkout\Cart\LineItemFactoryRegistry;
 use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
 use Shopware\Core\Checkout\Promotion\Cart\PromotionItemBuilder;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
+use Shopware\Core\Framework\Uuid\Uuid as ShopwareUuid;
 use Shopware\Core\System\SalesChannel\Context\SalesChannelContextService;
 use Shopware\Core\System\SalesChannel\SalesChannel\ContextSwitchRoute;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
@@ -403,7 +404,7 @@ final class MultiCartCheckoutService
             $contextField = $this->getContextField($cartField);
             $value = $preferenceOverride[$cartField] ?? ($selectedCarts[0][$cartField] ?? null);
 
-            if ($contextField !== null && is_string($value) && $value !== '') {
+            if ($contextField !== null && $this->isValidUuidValue($value)) {
                 $contextPayload[$contextField] = $value;
             }
         }
@@ -501,6 +502,11 @@ final class MultiCartCheckoutService
             $values,
             static fn ($value): bool => is_string($value) && $value !== ''
         ));
+    }
+
+    private function isValidUuidValue(mixed $value): bool
+    {
+        return is_string($value) && $value !== '' && ShopwareUuid::isValid($value);
     }
 
     /**

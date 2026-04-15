@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace ICTECHMultiCart;
 
 use Doctrine\DBAL\Connection;
-use Shopware\Core\Framework\Adapter\Cache\CacheClearer;
 use Shopware\Core\Framework\Plugin;
 use Shopware\Core\Framework\Plugin\Context\DeactivateContext;
 use Shopware\Core\Framework\Plugin\Context\UninstallContext;
@@ -17,7 +16,6 @@ final class ICTECHMultiCart extends Plugin
     {
         parent::deactivate($deactivateContext);
 
-        $this->clearPluginCaches();
     }
 
     public function uninstall(UninstallContext $uninstallContext): void
@@ -28,7 +26,6 @@ final class ICTECHMultiCart extends Plugin
             $this->removePluginData();
         }
 
-        $this->clearPluginCaches();
     }
 
     /**
@@ -54,16 +51,6 @@ final class ICTECHMultiCart extends Plugin
         return $connection;
     }
 
-    private function clearPluginCaches(): void
-    {
-        $cacheClearer = $this->getContainer()->get(CacheClearer::class);
-
-        if (!$cacheClearer instanceof CacheClearer) {
-            throw new \RuntimeException('Shopware cache clearer service is not available.');
-        }
-
-        $cacheClearer->clear();
-    }
 
     private function getContainer(): ContainerInterface
     {
