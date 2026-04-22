@@ -13,6 +13,7 @@ export default class MultiCartAccountPlugin extends Plugin {
         const addressModal = root.querySelector('[data-ictech-address-modal]');
         const combinedModal = root.querySelector('[data-ictech-combined-modal]');
         const viewItemsModal = root.querySelector('[data-ictech-view-items-modal]');
+        const deleteModal = root.querySelector('[data-ictech-delete-modal]');
         const combinedBar = root.querySelector('[data-ictech-combined-bar]');
         const countNode = root.querySelector('[data-ictech-combined-count]');
         const totalNode = root.querySelector('[data-ictech-combined-total]');
@@ -22,6 +23,7 @@ export default class MultiCartAccountPlugin extends Plugin {
         const renameUrlTemplate = root.dataset.ictechRenameUrlTemplate || '';
         const promotionUrlTemplate = root.dataset.ictechPromotionUrlTemplate || '';
         const addressUrl = root.dataset.ictechAddressUrl || '';
+        const deleteUrl = root.dataset.ictechDeleteUrl || '';
         const combinedFields = ['shippingAddressId', 'billingAddressId', 'paymentMethodId', 'shippingMethodId'];
         const renameNameRequiredLabel = root.dataset.ictechRenameNameRequiredLabel || '';
         const renameFailedLabel = root.dataset.ictechRenameFailedLabel || '';
@@ -251,9 +253,40 @@ export default class MultiCartAccountPlugin extends Plugin {
             });
         };
 
+        const setCreateFeedback = (message, isError = false) => {
+            const feedback = createModal ? createModal.querySelector('[data-ictech-create-feedback]') : null;
+
+            if (!feedback) {
+                return;
+            }
+
+            feedback.textContent = message || '';
+            feedback.hidden = !message;
+            feedback.classList.toggle('is-error', isError);
+            feedback.classList.toggle('is-success', Boolean(message) && !isError);
+        };
+
         root.querySelectorAll('[data-ictech-create-cart-toggle]').forEach((button) => {
-            button.addEventListener('click', () => openModal(createModal));
+            button.addEventListener('click', () => {
+                setCreateFeedback('');
+                openModal(createModal);
+            });
         });
+
+        if (createModal) {
+            createModal.addEventListener('submit', (event) => {
+                const input = createModal.querySelector('[name="name"]');
+                const cartName = input ? input.value.trim() : '';
+
+                if (!cartName) {
+                    event.preventDefault();
+                    setCreateFeedback(root.dataset.ictechCreateNameRequiredLabel || '', true);
+                    return;
+                }
+
+                setCreateFeedback('');
+            });
+        }
 
         root.querySelectorAll('[data-ictech-modal-close]').forEach((button) => {
             button.addEventListener('click', () => {
@@ -261,8 +294,52 @@ export default class MultiCartAccountPlugin extends Plugin {
                 closeModal(addressModal);
                 closeModal(combinedModal);
                 closeModal(viewItemsModal);
+                closeModal(deleteModal);
             });
         });
+
+        root.querySelectorAll('[data-ictech-delete-cart]').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+
+                if (!deleteModal) {
+                    return;
+                }
+
+                const cartId = button.getAttribute('data-ictech-delete-cart');
+                const cartIdInput = deleteModal.querySelector('[data-ictech-delete-cart-id]');
+
+                if (!cartId || !cartIdInput) {
+                    return;
+                }
+
+                cartIdInput.value = cartId;
+                openModal(deleteModal);
+            });
+        });
+
+        if (deleteModal) {
+            deleteModal.addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                if (!deleteUrl) {
+                    return;
+                }
+
+                const cartIdInput = deleteModal.querySelector('[data-ictech-delete-cart-id]');
+                const cartId = cartIdInput ? cartIdInput.value : '';
+
+                if (!cartId) {
+                    return;
+                }
+
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = deleteUrl.replace('__cartId__', cartId);
+                document.body.appendChild(form);
+                form.submit();
+            });
+        }
 
         root.querySelectorAll('[data-ictech-view-cart]').forEach((button) => {
             button.addEventListener('click', () => {
@@ -417,6 +494,11 @@ export default class MultiCartAccountPlugin extends Plugin {
                 const input = card ? card.querySelector('[data-ictech-promotion-input]') : null;
 
                 if (!cartId || !card || !input || !promotionUrlTemplate) {
+                    return;
+                }
+
+                if (!input.value.trim()) {
+                    setPromotionFeedback(card, root.dataset.ictechPromoRequiredLabel || '', true);
                     return;
                 }
 
@@ -659,6 +741,62 @@ export default class MultiCartAccountPlugin extends Plugin {
                 }
 
                 openModal(combinedModal);
+            });
+        });
+
+        root.querySelectorAll('[data-ictech-remove-item]').forEach((button) => {
+            button.addEventListener('click', async (event) => {
+                event.preventDefault();
+                
+                const itemId = button.dataset.ictechRemoveItem;
+                const cartId = button.dataset.cartId;
+                const removeUrl = root.dataset.ictechRemoveItemUrl;
+                const listItem = button.closest('.ictech-account-carts__item');
+
+                if (!removeUrl || !cartId || !itemId) {
+                    return;
+                }
+
+                button.disabled = true;
+
+                try {
+                    const response = await fetch(removeUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: new URLSearchParams({
+                            cartId,
+                            itemId,
+                        }),
+                    });
+                    const payload = await response.json().catch(() => ({}));
+
+                    if (!response.ok || payload.success !== true) {
+                        button.disabled = false;
+                        window.alert(payload.message || root.dataset.ictechRemoveItemErrorLabel || 'The product could not be removed.');
+                        return;
+                    }
+
+                    if (listItem) {
+                        listItem.style.opacity = '0';
+                        listItem.style.transition = 'opacity 0.3s ease';
+                        
+                        window.setTimeout(() => {
+                            listItem.remove();
+                        }, 300);
+                    }
+
+                    if (payload.cart) {
+                        const card = root.querySelector(`.ictech-account-carts__card[data-cart-id="${cartId}"]`);
+                        if (card) {
+                            updateCardSummary(card, payload.cart);
+                        }
+                    }
+                } catch {
+                    button.disabled = false;
+                    window.alert(root.dataset.ictechRemoveItemErrorLabel || 'The product could not be removed.');
+                }
             });
         });
 

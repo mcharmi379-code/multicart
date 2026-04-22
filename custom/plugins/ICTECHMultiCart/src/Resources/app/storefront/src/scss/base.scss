@@ -352,10 +352,18 @@
 .ictech-multi-cart-drawer {
     width: min(100vw, 420px);
     max-width: 420px;
+    overflow-x: hidden;
     padding: 1rem;
     background:
         radial-gradient(circle at top left, rgba(10, 86, 198, 0.12), transparent 26%),
         linear-gradient(180deg, #f6f9ff 0%, #ffffff 100%);
+}
+
+.ictech-multi-cart-selector--drawer .ictech-multi-cart-selector__select {
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .ictech-multi-cart-selector--drawer .ictech-multi-cart-selector__panel {

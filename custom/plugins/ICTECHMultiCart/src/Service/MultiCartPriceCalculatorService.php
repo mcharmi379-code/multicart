@@ -76,10 +76,10 @@ final class MultiCartPriceCalculatorService
         $promotionApplied = $promotionCode === '';
         $promotionErrors = [];
 
-        if ($items !== []) {
-            $token = (string) Uuid::uuid4()->getHex();
-            $shopwareCart = $this->cartService->createNew($token);
+        $token = (string) Uuid::uuid4()->getHex();
+        $shopwareCart = $this->cartService->createNew($token);
 
+        if ($items !== []) {
             foreach ($items as $item) {
                 $productId = is_string($item['productId'] ?? null) ? $item['productId'] : null;
                 $quantity = is_numeric($item['quantity'] ?? null) ? (int) $item['quantity'] : 0;
@@ -99,23 +99,27 @@ final class MultiCartPriceCalculatorService
 
                 $shopwareCart = $this->cartService->add($shopwareCart, $lineItem, $salesChannelContext);
             }
+        }
 
-            if ($promotionCode !== '') {
-                $promotionItem = $this->promotionItemBuilder->buildPlaceholderItem($promotionCode);
-                $shopwareCart = $this->cartService->add($shopwareCart, $promotionItem, $salesChannelContext);
-            }
+        if ($promotionCode !== '') {
+            $promotionItem = $this->promotionItemBuilder->buildPlaceholderItem($promotionCode);
+            $shopwareCart = $this->cartService->add($shopwareCart, $promotionItem, $salesChannelContext);
+        }
 
-            $shopwareCart = $this->cartService->recalculate($shopwareCart, $salesChannelContext);
+        $shopwareCart = $this->cartService->recalculate($shopwareCart, $salesChannelContext);
+
+        if ($items !== []) {
             $subtotal = $this->synchronizeLineItemPrices($cartId, $items, $shopwareCart->getLineItems());
             $price = $shopwareCart->getPrice();
             $total = (float) $price->getTotalPrice();
             $discount = $this->calculatePromotionDiscount($shopwareCart);
-            $promotionErrors = $this->extractPromotionErrors($shopwareCart, $promotionCode);
-            $promotionApplied = $promotionCode === ''
-                || ($promotionErrors === [] && $this->hasAppliedPromotion($shopwareCart, $promotionCode));
         } else {
             $this->resetItemPrices($cartId);
         }
+
+        $promotionErrors = $this->extractPromotionErrors($shopwareCart, $promotionCode);
+        $promotionApplied = $promotionCode === ''
+            || ($promotionErrors === [] && $this->hasAppliedPromotion($shopwareCart, $promotionCode));
 
         $this->connection->update(
             'ictech_multi_cart',

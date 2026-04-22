@@ -167,7 +167,7 @@ final class MultiCartCheckoutService
             return false;
         }
 
-        $contextPayload = $this->buildContextPayload($selectedCarts, $preferenceOverride, (bool) $state['checkoutPrefsEnabled']);
+        $contextPayload = $this->buildContextPayload($selectedCarts, $preferenceOverride, (bool) $state['checkoutPrefsEnabled'], $salesChannelContext);
 
         if ($contextPayload !== []) {
             $this->contextSwitchRoute->switchContext(new RequestDataBag($contextPayload), $salesChannelContext);
@@ -390,26 +390,51 @@ final class MultiCartCheckoutService
      *     shippingMethodId?: string|null
      * } $preferenceOverride
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
-    private function buildContextPayload(array $selectedCarts, array $preferenceOverride, bool $checkoutPrefsEnabled): array
+    private function buildContextPayload(array $selectedCarts, array $preferenceOverride, bool $checkoutPrefsEnabled, SalesChannelContext $salesChannelContext): array
     {
-        if (!$checkoutPrefsEnabled) {
-            return [];
-        }
-
         $contextPayload = [];
 
         foreach (self::CONTEXT_PREFERENCE_FIELDS as $cartField) {
             $contextField = $this->getContextField($cartField);
-            $value = $preferenceOverride[$cartField] ?? ($selectedCarts[0][$cartField] ?? null);
+    
+            if ($contextField === null) {
+                continue;
+            }
 
-            if ($contextField !== null && $this->isValidUuidValue($value)) {
-                $contextPayload[$contextField] = $value;
+            if ($checkoutPrefsEnabled) {
+                $value = $preferenceOverride[$cartField] ?? ($selectedCarts[0][$cartField] ?? null);
+                if ($this->isValidUuidValue($value)) {
+                    $contextPayload[$contextField] = $value;
+                }
+            } else {
+                $defaultValue = $this->getDefaultContextValue($cartField, $salesChannelContext);
+                if ($this->isValidUuidValue($defaultValue)) {
+                    $contextPayload[$contextField] = $defaultValue;
+                }
             }
         }
 
         return $contextPayload;
+    }
+
+    private function getDefaultContextValue(string $cartField, SalesChannelContext $salesChannelContext): ?string
+    {
+        $customer = $salesChannelContext->getCustomer();
+
+        if ($customer === null) {
+            return null;
+        }
+
+
+        return match ($cartField) {
+            'shippingAddressId' => $customer->getDefaultShippingAddressId(),
+            'billingAddressId' => $customer->getDefaultBillingAddressId(),
+            'paymentMethodId' => $salesChannelContext->getPaymentMethod()->getId(),
+            'shippingMethodId' => $salesChannelContext->getShippingMethod()->getId(),
+            default => null,
+        };
     }
 
     /**

@@ -91,6 +91,7 @@
         <service id="ICTECHMultiCart\Controller\Storefront\MultiCartAccountController" public="true" autowire="true" autoconfigure="true">
             <argument type="service" id="ICTECHMultiCart\Service\MultiCartStorefrontContextService" />
             <argument type="service" id="ICTECHMultiCart\Service\MultiCartCheckoutService" />
+            <argument type="service" id="Shopware\Storefront\Page\GenericPageLoader" />
             <call method="setContainer">
                 <argument type="service" id="service_container" />
             </call>
